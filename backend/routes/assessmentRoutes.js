@@ -10,7 +10,8 @@ const {
   deleteAssessment,
   submitAssessment,
   getUserResults,
-  getResultDetail
+  getResultDetail,
+  updateAssessment // [DITAMBAHKAN]: Destructure fungsi updateAssessment dari controller
 } = require('../controllers/assessmentController');
 
 // =========================
@@ -22,6 +23,12 @@ router.get('/', getAssessments);
 // CREATE ASSESSMENT
 // =========================
 router.post('/', createAssessment);
+
+// ==========================================
+// UPDATE ASSESSMENT (KHUSUS ADMIN) [DITAMBAHKAN]
+// ==========================================
+// Menggunakan rute PUT /:id agar menangani request edit dari frontend tanpa merusak kode lama
+router.put('/:id', updateAssessment);
 
 // =========================
 // DELETE ASSESSMENT

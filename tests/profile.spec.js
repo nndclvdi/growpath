@@ -2,47 +2,29 @@ import { test, expect } from '@playwright/test';
 
 test('user bisa edit profile', async ({ page }) => {
 
-  // =========================
   // LOGIN
-  // =========================
   await page.goto('http://localhost:5173/login');
 
-  await page.fill(
-    'input[type="email"]',
-    'fahrezireza26@gmail.com'
-  );
+  await page.fill('input[type="email"]', 'fahrezireza26@gmail.com');
+  await page.fill('input[type="password"]', '123456');
+  await page.click('button[type="submit"]');
 
-  await page.fill(
-    'input[type="password"]',
-    '123456'
-  );
-
-  await page.click(
-    'button[type="submit"]'
-  );
-
-  // tunggu dashboard
+  // Tunggu masuk ke dashboard dengan sukses
   await page.waitForURL('**/dashboard');
 
-  // =========================
   // PROFILE
-  // =========================
-  await page.goto(
-    'http://localhost:5173/profile'
-  );
+  await page.goto('http://localhost:5173/profile');
 
-  // tunggu profile tampil
-  await page.waitForTimeout(3000);
+  // Cek URL profile terlebih dahulu
+  await expect(page).toHaveURL(/profile/);
 
-  // screenshot profile
+  // Tunggu semua proses fetch API selesai agar data profil tidak kosong saat di-screenshot
+  await page.waitForLoadState('networkidle');
+
+  // Screenshot profile
   await page.screenshot({
     path: 'profile-page.png',
     fullPage: true
   });
-
-  // cek halaman profile tampil
-  await expect(page).toHaveURL(
-    /profile/
-  );
 
 });

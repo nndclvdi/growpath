@@ -1,55 +1,49 @@
 import { test, expect } from '@playwright/test';
 
 test('roadmap dan roadmap detail tampil', async ({ page }) => {
-
   // LOGIN
-  await page.goto('http://localhost:5173/login');
+  await page.goto('/login');
 
-  await page.fill(
-    'input[type="email"]',
-    'fahrezireza26@gmail.com'
-  );
+  await page.fill('input[type="email"]', 'fahrezireza26@gmail.com');
+  await page.fill('input[type="password"]', '123456');
 
-  await page.fill(
-    'input[type="password"]',
-    '123456'
-  );
+  await page.click('button[type="submit"]');
 
-  await page.click(
-    'button[type="submit"]'
-  );
-
-  // tunggu dashboard
   await page.waitForURL('**/dashboard');
 
-  // ROADMAP
-  await page.goto(
-    'http://localhost:5173/roadmap'
-  );
+  // pastikan benar-benar login
+  await expect(page).toHaveURL(/dashboard/);
 
-  await expect(page).toHaveURL(
-    /roadmap/
-  );
+  // ROADMAP PAGE
+  await page.goto('/roadmap');
 
-  // screenshot roadmap
+  await expect(page).toHaveURL(/roadmap/);
+
+  await page.waitForLoadState('networkidle');
+
   await page.screenshot({
     path: 'roadmap-page.png',
     fullPage: true
   });
 
-  // tunggu roadmap load
-  await page.waitForTimeout(3000);
+  // CLICK ROADMAP ITEM (lebih aman)
 
-  // klik roadmap kedua
-  await page.locator('a').nth(1).click();
+  // ❗ GANTI INI kalau ada text/selector spesifik
+  const roadmapItem = page.locator('a, button').filter({
+    hasText: /roadmap|career|level|path/i
+  }).first();
 
-  // tunggu detail
-  await page.waitForTimeout(3000);
+  await expect(roadmapItem).toBeVisible();
 
-  // screenshot detail
+  await roadmapItem.click();
+
+  // ROADMAP DETAIL
+  await page.waitForLoadState('networkidle');
+
+  await expect(page).toHaveURL(/roadmap/);
+
   await page.screenshot({
     path: 'roadmap-detail.png',
     fullPage: true
   });
-
 });

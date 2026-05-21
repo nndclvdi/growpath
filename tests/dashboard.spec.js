@@ -2,37 +2,23 @@ import { test, expect } from '@playwright/test';
 
 test('dashboard tampil', async ({ page }) => {
 
-  // login user
+  // 1. Buka halaman login
   await page.goto('http://localhost:5173/login');
 
-  await page.fill(
-    'input[type="email"]',
-    'fahrezireza26@gmail.com'
-  );
+  // 2. Isi form dan klik login
+  await page.fill('input[type="email"]', 'fahrezireza26@gmail.com');
+  await page.fill('input[type="password"]', '123456');
+  await page.click('button[type="submit"]');
 
-  await page.fill(
-    'input[type="password"]',
-    '123456'
-  );
+  
+  await page.waitForURL('**/dashboard');
 
-  await page.click(
-    'button[type="submit"]'
-  );
+  // 4. Cek URL Dashboard
+  await expect(page).toHaveURL(/dashboard/);
 
-  // tunggu redirect
-  await page.waitForTimeout(5000);
+  await expect(page.locator('body')).toBeVisible();
 
-  // buka dashboard
-  await page.goto(
-    'http://localhost:5173/dashboard'
-  );
-
-  // cek URL dashboard
-  await expect(page).toHaveURL(
-    /dashboard/
-  );
-
-  // screenshot dashboard
+  // 6. Screenshot dashboard
   await page.screenshot({
     path: 'dashboard.png',
     fullPage: true

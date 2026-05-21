@@ -26,19 +26,57 @@ exports.createAssessment = async (req, res) => {
       return res.status(403).json({ message: 'Akses ditolak. Hanya Admin yang bisa membuat soal.' });
     }
 
-    const { title, category, duration } = req.body;
+    // [DITAMBAHKAN]: description ditangkap dari req.body
+    const { title, category, duration, description } = req.body;
+    
+    // Validasi dasar (description tidak wajib agar fleksibel)
     if (!title || !category || !duration) {
       return res.status(400).json({ message: 'Semua field wajib diisi.' });
     }
 
+    // [DITAMBAHKAN]: description ke dalam Query SQL
     const result = await db.query(
-      `INSERT INTO assessments (title, category, duration) VALUES ($1, $2, $3) RETURNING *`,
-      [title, category, duration]
+      `INSERT INTO assessments (title, category, duration, description) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [title, category, duration, description]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("Error createAssessment:", error);
     res.status(500).json({ message: 'Gagal membuat soal kuis.' });
+  }
+};
+
+// ==========================================
+// [FUNGSI BARU]: UPDATE ASSESSMENT (KHUSUS ADMIN)
+// ==========================================
+exports.updateAssessment = async (req, res) => {
+  try {
+    if (!req.session.adminId) {
+      return res.status(403).json({ message: 'Akses ditolak. Hanya Admin yang bisa mengedit soal.' });
+    }
+
+    const id = parseInt(req.params.id, 10);
+    const { title, category, duration, description } = req.body;
+
+    if (!title || !category || !duration) {
+      return res.status(400).json({ message: 'Field title, category, dan duration wajib diisi.' });
+    }
+
+    const result = await db.query(
+      `UPDATE assessments 
+       SET title = $1, category = $2, duration = $3, description = $4 
+       WHERE id = $5 RETURNING *`,
+      [title, category, duration, description, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Assessment tidak ditemukan' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updateAssessment:", error);
+    res.status(500).json({ message: 'Gagal mengedit soal kuis.' });
   }
 };
 

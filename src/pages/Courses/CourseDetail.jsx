@@ -13,15 +13,17 @@ export default function CourseDetail() {
     progress
   } = useAppContext();
 
-  const course = courses.find(c => c.id === parseInt(id));
+  // Menyelaraskan pencarian ID agar fleksibel mendeteksi ID numerik asli dari PostgreSQL
+  const course = courses.find(c => String(c.id) === String(id) || String(c._id) === String(id));
 
-  // VIDEO YOUTUBE BERDASARKAN COURSE
-  // Menggunakan URL dasar (tanpa /embed/) agar bisa dimanipulasi oleh YouTube API
+  // ========================================================
+  // VIDEO YOUTUBE BERDASARKAN ID ASLI POSTGRESQL (SUDAH FIX)
+  // ========================================================
   const courseVideoIds = {
-    1: 'c9Wg6Cb_YlU',
-    2: 'TNhaISOUy6Q',
-    3: 'Oe421EPjeBE',
-  };
+  1: 'c9Wg6Cb_YlU', // Video React (Salah mapping)
+  2: 'TNhaISOUy6Q',
+  3: 'Oe421EPjeBE', // ID 3 malah video Node.js
+};
 
   const [completedLessons, setCompletedLessons] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -31,7 +33,7 @@ export default function CourseDetail() {
 
   // Fungsi untuk memuat YouTube Iframe API
   useEffect(() => {
-    if (isPlaying && courseVideoIds[course?.id]) {
+    if (isPlaying && (courseVideoIds[course?.id] || courseVideoIds[course?._id])) {
       // Cek apakah script API sudah ada di halaman
       if (!window.YT) {
         const tag = document.createElement('script');
@@ -53,8 +55,9 @@ export default function CourseDetail() {
   }, [isPlaying, course?.id]);
 
   const initializePlayer = () => {
-    playerRef.current = new window.YT.Player(`Youtubeer-${course.id}`, {
-      videoId: courseVideoIds[course.id],
+    const currentId = course.id || course._id;
+    playerRef.current = new window.YT.Player(`Youtubeer-${currentId}`, {
+      videoId: courseVideoIds[String(currentId)] || 'c9Wg6Cb_YlU',
       playerVars: {
         autoplay: 1, // Otomatis main
         rel: 0,      // Tidak tampilkan video terkait di akhir
@@ -74,14 +77,15 @@ export default function CourseDetail() {
   };
 
   const handleVideoCompletion = () => {
-    // 1. Tandai semua lesson sebagai selesai (opsional, jika Anda mau auto-checklist)
-    if (course?.lessons) {
+    if (course?.lessons && Array.isArray(course.lessons)) {
       const allLessonIds = course.lessons.map(l => l.id);
+      setCompletedLessons(allLessonIds);
+    } else if (course?.lessons && !isNaN(course.lessons)) {
+      const allLessonIds = Array.from({ length: Number(course.lessons) }).map((_, i) => i);
       setCompletedLessons(allLessonIds);
     }
     
-    // 2. Beri tahu Context bahwa kursus ini 100% selesai
-    markCourseCompleted(course.id);
+    markCourseCompleted(course.id || course._id);
     alert('Selamat! Anda telah menyelesaikan materi ini.');
   };
 
@@ -99,8 +103,6 @@ export default function CourseDetail() {
     );
   }
 
-  // const isCourseCompleted = progress.completedCourses.includes(course.id);
-
   const toggleLesson = (lessonId) => {
     let newCompleted;
     if (completedLessons.includes(lessonId)) {
@@ -110,9 +112,12 @@ export default function CourseDetail() {
     }
     setCompletedLessons(newCompleted);
     
-    // Jika semua lesson di-klik manual sampai habis
-    if (newCompleted.length === course.lessons?.length) {
-      markCourseCompleted(course.id);
+    const totalLessonsLength = Array.isArray(course.lessons) 
+      ? course.lessons.length 
+      : (Number(course.lessons) || 0);
+
+    if (newCompleted.length === totalLessonsLength) {
+      markCourseCompleted(course.id || course._id);
     }
   };
 
@@ -152,7 +157,6 @@ export default function CourseDetail() {
                 </button>
               </div>
             ) : (
-              // DIV INI AKAN DI-REPLACE OLEH YOUTUBE IFRAME API
               <div id={`Youtubeer-${course.id}`} className="w-full h-full"></div>
             )}
           </div>
@@ -163,13 +167,13 @@ export default function CourseDetail() {
               {course.title}
             </h1>
             <p className="text-sm text-slate-400 mb-6">
-              {course.author} • Last updated Oct 2023
+              {course.author || 'GrowPath Expert'} • Last updated Oct 2023
             </p>
 
             <h3 className="text-lg font-bold text-slate-800 mb-3">Description</h3>
             <div className="space-y-2">
               <p className="text-slate-500 leading-relaxed">
-                {course.description || "Learn the principles of user interface and user experience design from scratch."}
+                {course.description && course.description !== '[null]' ? course.description : "Learn the principles from scratch."}
               </p>
               <div className="h-2 bg-slate-50 rounded-full w-full"></div>
               <div className="h-2 bg-slate-50 rounded-full w-3/4"></div>
@@ -184,47 +188,92 @@ export default function CourseDetail() {
               <h2 className="text-xl font-bold text-slate-800 mb-4">Course Content</h2>
               
               <div className="space-y-3">
-                {course.lessons && course.lessons.map((lesson, idx) => {
-                  const isChecked = completedLessons.includes(lesson.id);
-                  const isActive = idx === 0 && !isChecked; 
+                {/* 1. JIKA DATA LESSONS BERUBAH ARRAY OBJECT LAMA */}
+                {course.lessons && Array.isArray(course.lessons) ? (
+                  course.lessons.map((lesson, idx) => {
+                    const isChecked = completedLessons.includes(lesson.id);
+                    const isActive = idx === 0 && !isChecked; 
 
-                  return (
-                    <div
-                      key={lesson.id}
-                      onClick={() => toggleLesson(lesson.id)}
-                      className={`group cursor-pointer p-4 rounded-2xl transition-all border ${
-                        isActive 
-                          ? 'bg-indigo-50/50 border-indigo-200' 
-                          : 'bg-transparent border-transparent hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="mt-1">
-                          {isChecked ? (
-                            <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                               <div className="w-2 h-2 bg-white rounded-full"></div>
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 border-2 border-slate-200 rounded-full bg-white group-hover:border-indigo-300 transition-colors"></div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold transition-colors ${
-                            isActive ? 'text-indigo-600' : isChecked ? 'text-emerald-600' : 'text-slate-700'
-                          }`}>
-                            Lesson {idx + 1}: {lesson.title}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1 font-medium">
-                            {lesson.duration}
-                          </p>
+                    return (
+                      <div
+                        key={lesson.id || idx}
+                        onClick={() => toggleLesson(lesson.id)}
+                        className={`group cursor-pointer p-4 rounded-2xl transition-all border ${
+                          isActive 
+                            ? 'bg-indigo-50/50 border-indigo-200' 
+                            : 'bg-transparent border-transparent hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="mt-1">
+                            {isChecked ? (
+                              <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                                 <div className="w-2 h-2 bg-white rounded-full"></div>
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 border-2 border-slate-200 rounded-full bg-white group-hover:border-indigo-300 transition-colors"></div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <p className={`text-sm font-semibold transition-colors ${
+                              isActive ? 'text-indigo-600' : isChecked ? 'text-emerald-600' : 'text-slate-700'
+                            }`}>
+                              Lesson {idx + 1}: {lesson.title}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1 font-medium">
+                              {lesson.duration}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : /* 2. JIKA DATA LESSONS BERUPA INTEGER / ANGKA DARI POSTGRESQL */
+                course.lessons && (!isNaN(course.lessons) || typeof course.lessons === 'number') ? (
+                  Array.from({ length: Number(course.lessons) || 0 }).map((_, idx) => {
+                    const isChecked = completedLessons.includes(idx);
+                    const isActive = idx === 0 && !isChecked;
 
-                {(!course.lessons || course.lessons.length === 0) && (
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => toggleLesson(idx)}
+                        className={`group cursor-pointer p-4 rounded-2xl transition-all border ${
+                          isActive 
+                            ? 'bg-indigo-50/50 border-indigo-200' 
+                            : 'bg-transparent border-transparent hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="mt-1">
+                            {isChecked ? (
+                              <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                                 <div className="w-2 h-2 bg-white rounded-full"></div>
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 border-2 border-slate-200 rounded-full bg-white group-hover:border-indigo-300 transition-colors"></div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <p className={`text-sm font-semibold transition-colors ${
+                              isActive ? 'text-indigo-600' : isChecked ? 'text-emerald-600' : 'text-slate-700'
+                            }`}>
+                              Module {idx + 1}: Course Material
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1 font-medium">
+                              Self-paced learning
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : null}
+
+                {/* 3. JIKA DATA MATERI KOSONG */}
+                {(!course.lessons || Number(course.lessons) === 0) && (
                   <p className="text-center py-10 text-slate-400 text-sm italic">
                     No lessons available yet.
                   </p>

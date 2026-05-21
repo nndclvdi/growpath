@@ -1,62 +1,31 @@
 import { test, expect } from '@playwright/test';
 
 test('assessment pages tampil', async ({ page }) => {
-
-  // =========================
   // LOGIN
-  // =========================
   await page.goto('http://localhost:5173/login');
+  await page.fill('input[type="email"]', 'fahrezireza26@gmail.com');
+  await page.fill('input[type="password"]', '123456');
+  await page.click('button[type="submit"]');
+  // tunggu redirect login berhasil
+  await page.waitForURL('**/dashboard', { timeout: 10000 });
 
-  await page.fill(
-    'input[type="email"]',
-    'fahrezireza26@gmail.com'
-  );
+  // pastikan token benar-benar ada (INI PENTING)
+  const token = await page.evaluate(() => localStorage.getItem('token'));
+  expect(token).not.toBeNull();
 
-  await page.fill(
-    'input[type="password"]',
-    '123456'
-  );
-
-  await page.click(
-    'button[type="submit"]'
-  );
-
-  // tunggu sampai dashboard
-  await page.waitForURL(
-    '**/dashboard'
-  );
-
-  // =========================
   // ASSESSMENT LIST
-  // =========================
-  await page.goto(
-    'http://localhost:5173/assessment-list'
-  );
+  await page.goto('http://localhost:5173/assessment');
 
-  await expect(page).toHaveURL(
-    /assessment-list/
-  );
+  // jangan pakai regex yang salah
+  await expect(page).toHaveURL(/assessment/);
 
-  // =========================
   // ASSESSMENT TAKE
-  // =========================
-  await page.goto(
-    'http://localhost:5173/assessment-take'
-  );
+  await page.goto('http://localhost:5173/assessment/take/1');
 
-  await expect(page).toHaveURL(
-    /assessment-take/
-  );
+  await expect(page).toHaveURL(/assessment\/take/);
 
-  // =========================
   // ASSESSMENT RESULT
-  // =========================
-  await page.goto(
-    'http://localhost:5173/assessment-result'
-  );
+  await page.goto('http://localhost:5173/assessment/result');
 
-  await expect(page).toHaveURL(
-    /assessment-result/
-  );
-
+  await expect(page).toHaveURL(/assessment\/result/);
 });

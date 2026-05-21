@@ -37,12 +37,6 @@ const initialCourses = [
   },
 ];
 
-const initialAvailableAssessments = [
-  { id: '1', title: 'React Fundamentals', category: 'Frontend', duration: '30 mins' },
-  { id: '2', title: 'Advanced CSS Layouts', category: 'Design', duration: '45 mins' },
-  { id: '3', title: 'JavaScript Algorithms', category: 'Programming', duration: '60 mins' },
-];
-
 const initialTalentMappings = [
   { id: 1, name: 'John Doe', role: 'Frontend Developer', department: 'Engineering', performance: 'High', potential: 'High', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150' },
   { id: 2, name: 'Jane Smith', role: 'Product Designer', department: 'Design', performance: 'Medium', potential: 'High', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' },
@@ -59,7 +53,6 @@ export const AppProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(true);
 
-  // Ditambahkan struktur 'activeCourses' secara default agar tidak undefined
   const [progress, setProgress] = useState(() => {
     const saved = localStorage.getItem('growpath_progress');
     return saved ? JSON.parse(saved) : { 
@@ -70,15 +63,11 @@ export const AppProvider = ({ children }) => {
     };
   });
 
-  const [courses, setCourses] = useState(() => {
-    const saved = localStorage.getItem('growpath_courses');
-    return saved ? JSON.parse(saved) : initialCourses;
-  });
+  // [FIXED]: Diubah murni menjadi array kosong secara ringkas agar tidak merusak compile React
+  const [courses, setCourses] = useState([]);
 
-  const [availableAssessments, setAvailableAssessments] = useState(() => {
-    const saved = localStorage.getItem('growpath_available_assessments');
-    return saved ? JSON.parse(saved) : initialAvailableAssessments;
-  });
+  // Pure state array kosong karena bersumber langsung dari database PostgreSQL
+  const [availableAssessments, setAvailableAssessments] = useState([]);
 
   const [talentMappings, setTalentMappings] = useState(() => {
     const saved = localStorage.getItem('growpath_talent_mappings');
@@ -113,6 +102,73 @@ export const AppProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // ========================================================
+  // FETCH REAL DATA ASSESSMENTS DARI POSTGRESQL (OPTIMIZED)
+  // ========================================================
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/assessments', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Pengaman ekstra jika data dibungkus dalam properti .assessments atau .data oleh backend
+          const cleanAssessments = Array.isArray(data) 
+            ? data 
+            : (data.assessments || data.data || []);
+            
+          setAvailableAssessments(cleanAssessments);
+        } else {
+          console.error("Gagal mengambil data kuis dari server.");
+        }
+      } catch (error) {
+        console.error("Koneksi gagal terhubung ke API assessments:", error);
+      }
+    };
+
+    if (user) {
+      fetchAssessments();
+    }
+  }, [user]);
+
+  // ========================================================
+  // FETCH REAL DATA COURSES DARI POSTGRESQL (OPTIMIZED)
+  // ========================================================
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/courses', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Pengaman ekstra: Mendeteksi apakah respons berbentuk array langsung 
+          // atau dibungkus objek nested seperti data.courses / data.courses.data
+          const cleanCourses = Array.isArray(data)
+            ? data
+            : (data.courses || data.data || []);
+            
+          setCourses(cleanCourses);
+        } else {
+          console.error("Gagal mengambil data courses dari server.");
+        }
+      } catch (error) {
+        console.error("Koneksi gagal terhubung ke API courses:", error);
+      }
+    };
+
+    if (user) {
+      fetchCourses();
+    }
+  }, [user]);
+
   // =========================
   // PERSISTENCE (LOCAL STORAGE)
   // =========================
@@ -124,13 +180,7 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('growpath_progress', JSON.stringify(progress));
   }, [progress]);
 
-  useEffect(() => {
-    localStorage.setItem('growpath_courses', JSON.stringify(courses));
-  }, [courses]);
-
-  useEffect(() => {
-    localStorage.setItem('growpath_available_assessments', JSON.stringify(availableAssessments));
-  }, [availableAssessments]);
+  // Sinkronisasi LocalStorage untuk courses dan assessments sudah dicabut demi keamanan integrasi PostgreSQL
 
   useEffect(() => {
     localStorage.setItem('growpath_talent_mappings', JSON.stringify(talentMappings));
@@ -183,17 +233,14 @@ export const AppProvider = ({ children }) => {
     setProgress(prev => ({ ...prev, assessments: prev.assessments.filter(a => a.attemptId !== attemptId) }));
   };
 
-  // PEMBARUAN LOGIKA SELESAI: Mendukung integrasi persentase objek activeCourses secara dinamis
   const markCourseCompleted = (courseId) => {
     setProgress(prev => {
       const targetId = courseId.toString();
 
-      // 1. Amankan array completedCourses dari duplikasi rute ID
       const updatedCompleted = prev.completedCourses.map(id => id.toString()).includes(targetId)
         ? prev.completedCourses
         : [...prev.completedCourses, targetId];
 
-      // 2. Set persentase kursus aktif tersebut menjadi 100%
       let updatedActive = prev.activeCourses?.map(ac => {
         if (ac.courseId.toString() === targetId) {
           return { ...ac, percentage: 100, currentModuleName: 'Selesai' };
@@ -201,7 +248,6 @@ export const AppProvider = ({ children }) => {
         return ac;
       }) || [];
 
-      // 3. Jika data kursus belum pernah masuk ke activeCourses, lakukan push otomatis
       const hasActive = prev.activeCourses?.some(ac => ac.courseId.toString() === targetId);
       if (!hasActive) {
         updatedActive.push({
@@ -219,23 +265,46 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  const addCourse = (course) => setCourses(prev => [...prev, { ...course, id: Date.now() }]);
-  const updateCourse = (id, data) => setCourses(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-  const deleteCourse = (id) => setCourses(prev => prev.filter(c => c.id !== id));
+  const addCourse = (course) => {
+    const newC = { ...course, id: course._id || course.id || Date.now().toString() };
+    setCourses(prev => [...prev, newC]);
+  };
 
+  const updateCourse = (updatedData) => {
+    setCourses(prev => prev.map(c => 
+      (c.id === updatedData.id || c._id === updatedData._id || c.id === updatedData._id) 
+        ? { ...c, ...updatedData } 
+        : c
+    ));
+  };
+
+  const deleteCourse = (id) => {
+    setCourses(prev => prev.filter(c => c.id !== id && c._id !== id));
+  };
+
+  // ==========================================
+  // ASSESSMENTS ACTIONS
+  // ==========================================
   const addAssessment = (assessment) => {
-    const newA = { ...assessment, id: assessment.id || Date.now().toString() };
+    const newA = { ...assessment, id: assessment._id || assessment.id || Date.now().toString() };
     setAvailableAssessments(prev => [...prev, newA]);
   };
 
-  const updateAssessment = (id, data) => {
-    setAvailableAssessments(prev => prev.map(a => (a.id === id) ? { ...a, ...data } : a));
+  const updateAssessment = (updatedData) => {
+    setAvailableAssessments(prev => prev.map(a => 
+      (a.id === updatedData.id || a._id === updatedData._id || a.id === updatedData._id) 
+        ? { ...a, ...updatedData } 
+        : a
+    ));
   };
 
   const deleteAssessment = (id) => {
-    setAvailableAssessments(prev => prev.filter(a => a.id !== id));
+    setAvailableAssessments(prev => prev.filter(a => a.id !== id && a._id !== id));
   };
 
+  // =========================
+  // TALENT MAPPING ACTIONS
+  // =========================
   const addTalentMapping = (t) => setTalentMappings(prev => [...prev, { ...t, id: Date.now() }]);
   const updateTalentMapping = (id, data) => setTalentMappings(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
   const deleteTalentMapping = (id) => setTalentMappings(prev => prev.filter(t => t.id !== id));
