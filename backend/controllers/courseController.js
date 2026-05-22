@@ -88,3 +88,53 @@ exports.deleteCourse = async (req, res) => {
     res.status(500).json({ message: 'Gagal menghapus data course.' });
   }
 };
+
+// ==========================================
+// 5. MARK COURSE AS COMPLETED (KHUSUS USER)
+// ==========================================
+exports.completeCourse = async (req, res) => {
+  try {
+    // Pastikan user sudah login
+    if (!req.session.userId) {
+      return res.status(401).json({ message: 'Silakan login untuk menyelesaikan kursus.' });
+    }
+
+    const userId = parseInt(req.session.userId, 10);
+    const courseId = parseInt(req.params.id, 10);
+
+    // Cek apakah progress untuk kursus ini sudah pernah dibuat sebelumnya
+    const checkProgress = await db.query(
+      `SELECT id FROM user_course_progress WHERE user_id = $1 AND course_id = $2`,
+      [userId, courseId]
+    );
+
+    if (checkProgress.rows.length > 0) {
+      // Jika sudah ada, update statusnya menjadi selesai (TRUE) dan persentase 100
+      await db.query(
+        `UPDATE user_course_progress 
+         SET is_completed = TRUE, progress_percentage = 100, last_accessed = CURRENT_TIMESTAMP 
+         WHERE user_id = $1 AND course_id = $2`,
+        [userId, courseId]
+      );
+    } else {
+      // Jika belum pernah ada progress sama sekali, buat data baru langsung dengan status selesai
+      await db.query(
+        `INSERT INTO user_course_progress (user_id, course_id, is_completed, progress_percentage) 
+         VALUES ($1, $2, TRUE, 100)`,
+        [userId, courseId]
+      );
+    }
+
+    // OTOMATISASI: Berikan tambahan waktu belajar 2 jam ke Bar Chart sebagai hadiah menyelesaikan course
+    await db.query(
+      `INSERT INTO user_activities (user_id, activity_date, hours_spent) 
+       VALUES ($1, CURRENT_DATE, 2.0)`,
+      [userId]
+    );
+
+    res.json({ message: 'Selamat! Kursus berhasil diselesaikan dan progress telah diperbarui.' });
+  } catch (error) {
+    console.error("Error completeCourse:", error);
+    res.status(500).json({ message: 'Gagal menyelesaikan kursus.' });
+  }
+};

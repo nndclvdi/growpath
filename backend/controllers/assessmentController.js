@@ -98,7 +98,7 @@ exports.deleteAssessment = async (req, res) => {
 };
 
 // ==========================================
-// 4. SUBMIT ASSESSMENT (KHUSUS USER)
+// 4. SUBMIT ASSESSMENT (KHUSUS USER) - TERINTEGRASI DENGAN PROGRESS
 // ==========================================
 exports.submitAssessment = async (req, res) => {
   try {
@@ -110,18 +110,62 @@ exports.submitAssessment = async (req, res) => {
     }
 
     const user_id = parseInt(req.session.userId, 10);
-    const { assessment_id, score } = req.body;
+    const { assessment_id, score, timeSpentHours } = req.body;
 
+    // MULAI TRANSAKSI DATABASE
+    await db.query('BEGIN');
+
+    // 1. Simpan ke tabel assessment_results
     const result = await db.query(
       `INSERT INTO assessment_results (user_id, assessment_id, score, created_at) 
        VALUES($1, $2, $3, NOW()) RETURNING *`,
       [user_id, assessment_id, score]
     );
 
-    res.json({ message: 'Hasil berhasil disimpan!', data: result.rows[0] });
+    // 2. Ambil kategori untuk Radar Chart
+    const assessInfo = await db.query(`SELECT category FROM assessments WHERE id = $1`, [assessment_id]);
+    const skillCategory = assessInfo.rows.length > 0 ? assessInfo.rows[0].category : 'General';
+
+    // 3. Tambah jam belajar ke user_activities (Bar Chart)
+    const hours = timeSpentHours || 0.5; // Jika tidak dikirim dari FE, set default 30 menit (0.5 jam)
+    await db.query(
+      `INSERT INTO user_activities (user_id, activity_date, hours_spent) 
+       VALUES ($1, CURRENT_DATE, $2)`,
+      [user_id, hours]
+    );
+
+    // 4. Update/Insert Data Skill (Radar Chart)
+    const checkSkill = await db.query(
+      `SELECT id, proficiency FROM user_skills WHERE user_id = $1 AND skill_name = $2`,
+      [user_id, skillCategory]
+    );
+
+    if (checkSkill.rows.length > 0) {
+      // Perbarui dengan nilai tertinggi
+      await db.query(
+        `UPDATE user_skills 
+         SET proficiency = GREATEST(proficiency, $3), updated_at = CURRENT_TIMESTAMP 
+         WHERE user_id = $1 AND skill_name = $2`,
+        [user_id, skillCategory, score]
+      );
+    } else {
+      // Masukkan data skill baru
+      await db.query(
+        `INSERT INTO user_skills (user_id, skill_name, proficiency) 
+         VALUES ($1, $2, $3)`,
+        [user_id, skillCategory, score]
+      );
+    }
+
+    // SIMPAN SEMUA PERUBAHAN
+    await db.query('COMMIT');
+
+    res.json({ message: 'Hasil berhasil disimpan dan Progress diperbarui!', data: result.rows[0] });
   } catch (error) {
+    // BATALKAN SEMUA PERUBAHAN JIKA ADA ERROR
+    await db.query('ROLLBACK');
     console.error("Error submitAssessment:", error);
-    res.status(500).json({ message: 'Gagal menyimpan hasil.' });
+    res.status(500).json({ message: 'Gagal menyimpan hasil dan progress.' });
   }
 };
 
@@ -150,7 +194,6 @@ exports.getUserResults = async (req, res) => {
 // ==========================================
 // 6. GET SINGLE RESULT DETAIL (FIXED)
 // ==========================================
-// Simpan di assessmentController.js bagian getResultDetail
 exports.getResultDetail = async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);

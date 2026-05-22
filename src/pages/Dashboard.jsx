@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Target, Trophy, Clock, Zap, ArrowRight, Lock, BookOpen, Calendar } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,44 +7,109 @@ export default function Dashboard() {
   const { user, progress, courses } = useAppContext();
   const navigate = useNavigate();
 
-  // 1. DATA STATISTIK ASLI DARI USER & PROGRESS
+  // State untuk menyimpan data dinamis dari Backend
+  const [dashboardStats, setDashboardStats] = useState({
+    streak: 0,
+    completed: 0,
+    totalHours: 0,
+    achievements: 0
+  });
+  const [roadmapSteps, setRoadmapSteps] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user?.id) return;
+
+      try {
+        // 1. Ambil Data Statistik (Progress)
+        const statRes = await fetch(`http://localhost:5000/api/progress/${user.id}`);
+        if (statRes.ok) {
+          const statData = await statRes.json();
+          setDashboardStats(statData.stats);
+        }
+
+        // 2. Ambil Data Roadmap untuk Sidebar
+        const rmRes = await fetch('http://localhost:5000/api/roadmaps');
+        if (rmRes.ok) {
+          const rmData = await rmRes.json();
+          
+          // Format data roadmap agar sesuai dengan UI Dashboard
+          const formattedRoadmap = rmData.map((item, index) => {
+            const phaseId = `phase${index + 1}`;
+            // Asumsi setiap phase di frontend punya 2 item (category & level)
+            const checklist = progress?.roadmapChecklist?.[phaseId] || [];
+            const isCompleted = checklist.length >= 2;
+
+            let status = 'Locked';
+            if (index === 0) {
+              status = isCompleted ? 'Done' : 'Active';
+            } else {
+              const prevPhaseId = `phase${index}`;
+              const prevChecklist = progress?.roadmapChecklist?.[prevPhaseId] || [];
+              const prevCompleted = prevChecklist.length >= 2;
+              
+              if (prevCompleted) {
+                status = isCompleted ? 'Done' : 'Active';
+              }
+            }
+
+            // Bersihkan judul panjang agar pas di sidebar
+            const shortTitle = item.title.replace(`Step ${index + 1}: `, '').replace(' Roadmap', '');
+
+            return {
+              id: index + 1,
+              title: shortTitle,
+              status: status
+            };
+          });
+
+          setRoadmapSteps(formattedRoadmap.slice(0, 4)); // Ambil maksimal 4 step untuk dashboard
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user, progress?.roadmapChecklist]);
+
+  // 1. MAPPING STATISTIK (Menggunakan data dari Backend)
   const stats = [
     { 
       title: 'Current Streak', 
-      value: `${user?.streak || 0} Days`, 
+      value: `${dashboardStats.streak} Days`, 
       icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-50' 
     },
     { 
       title: 'Courses Done', 
-      value: progress?.completedCourses?.length?.toString() || '0', 
+      value: dashboardStats.completed.toString(), 
       icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' 
     },
     { 
       title: 'Hours Learned', 
-      value: `${user?.hoursLearned || 0}h`, 
+      value: `${dashboardStats.totalHours}h`, 
       icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50' 
     },
     { 
       title: 'Skills Gained', 
-      value: user?.skills?.length?.toString() || '0', 
+      value: dashboardStats.achievements.toString(), 
       icon: Trophy, color: 'text-indigo-600', bg: 'bg-indigo-50' 
     },
   ];
 
-  // 2. KURSUS YANG SEDANG AKTIF (Penyaringan ID dipaksa string agar aman dari bug data types)
+  // 2. KURSUS YANG SEDANG AKTIF (Fallback aman dari UI lama)
   const activeCourseIds = progress?.activeCourses?.map(ac => ac.courseId?.toString()) || [];
   const myActiveCourses = courses?.filter(c => activeCourseIds.includes((c.id || c._id)?.toString())) || [];
   
-  // Amankan Fallback: Jika user belum punya course aktif sama sekali, ambil list course default agar dashboard tidak kosong
-  const displayCourses = myActiveCourses.length > 0 ? myActiveCourses.slice(0, 2) : courses?.slice(0, 2);
+  // Jika user belum punya course aktif, ambil list course default agar dashboard tidak kosong
+  const displayCourses = myActiveCourses.length > 0 ? myActiveCourses.slice(0, 2) : courses?.slice(0, 2) || [];
 
-  // 3. ROADMAP (Menyesuaikan dengan level/status user)
-  const roadmapSteps = progress?.roadmap || [
-    { id: 1, title: 'Basics', status: user?.level >= 1 ? 'Done' : 'Active', color: user?.level >= 1 ? 'bg-emerald-500' : 'bg-indigo-600' },
-    { id: 2, title: 'Fundamentals', status: user?.level >= 2 ? 'Done' : 'Locked', color: user?.level >= 2 ? 'bg-emerald-500' : 'bg-slate-200' },
-    { id: 3, title: 'Integration', status: user?.level >= 3 ? 'Done' : 'Locked', color: user?.level >= 3 ? 'bg-emerald-500' : 'bg-slate-200' },
-    { id: 4, title: 'Advanced', status: user?.level >= 4 ? 'Done' : 'Locked', color: user?.level >= 4 ? 'bg-emerald-500' : 'bg-slate-200' },
-  ];
+  if (loading) {
+    return <div className="text-center p-20 text-slate-500 font-medium animate-pulse">Menyiapkan Dashboard...</div>;
+  }
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-12 animate-in fade-in duration-500 pb-20 px-4 md:px-8">
@@ -56,7 +121,7 @@ export default function Dashboard() {
             Learning Mode
           </span>
           <h1 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight leading-tight">
-            Welcome back, <br className="block md:hidden" /> {user?.name?.split(' ')[0] || 'User'}!
+            Welcome back, <br className="block md:hidden" /> {user?.name?.split(' ')[0] || 'Reza'}!
           </h1>
           <p className="text-indigo-50 opacity-95 text-base md:text-2xl leading-relaxed font-medium">
             Continue your learning journey and achieve your goals. You're making great progress!
@@ -96,7 +161,7 @@ export default function Dashboard() {
             <h2 className="text-xl md:text-3xl font-black text-slate-800">Continue Learning</h2>
             <button 
               onClick={() => navigate('/courses')}
-              className="text-indigo-600 text-sm md:text-lg font-black flex items-center gap-1 md:gap-2"
+              className="text-indigo-600 text-sm md:text-lg font-black flex items-center gap-1 md:gap-2 hover:translate-x-1 transition-transform"
             >
               [ View All ] <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
             </button>
@@ -105,22 +170,25 @@ export default function Dashboard() {
           <div className="space-y-4 md:space-y-8">
             {displayCourses.length > 0 ? (
               displayCourses.map((course) => {
-                // Pencarian objek progress dicocokkan menggunakan String (.toString()) secara aman
                 const courseProgress = progress?.activeCourses?.find(
                   ac => ac.courseId?.toString() === (course.id || course._id)?.toString()
                 );
                 const percentage = courseProgress?.percentage || 0;
 
                 return (
-                  <div key={course.id || course._id} className="bg-white rounded-[28px] md:rounded-[40px] p-6 md:p-10 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center gap-6 md:gap-10 group">
-                    <div className="hidden sm:flex w-24 h-24 md:w-28 md:h-28 bg-slate-50 rounded-[20px] md:rounded-[30px] items-center justify-center shrink-0 border border-slate-100 shadow-inner">
-                      <span className="text-[10px] md:text-sm font-black text-slate-300 uppercase">Thumb</span>
+                  <div key={course.id || course._id} className="bg-white rounded-[28px] md:rounded-[40px] p-6 md:p-10 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center gap-6 md:gap-10 group hover:border-indigo-100 hover:shadow-md transition-all">
+                    <div className="hidden sm:flex w-24 h-24 md:w-28 md:h-28 bg-slate-50 rounded-[20px] md:rounded-[30px] items-center justify-center shrink-0 border border-slate-100 overflow-hidden">
+                      {course.image ? (
+                        <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] md:text-sm font-black text-slate-300 uppercase">Thumb</span>
+                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0 space-y-1 md:space-y-2 w-full">
-                      <h3 className="text-lg md:text-2xl font-black text-slate-800 truncate">{course.title}</h3>
+                      <h3 className="text-lg md:text-2xl font-black text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{course.title}</h3>
                       <p className="text-slate-400 text-xs md:text-lg font-bold mb-3 md:mb-6">
-                        Module: {courseProgress?.currentModuleName || 'In Progress'}
+                        Module: {courseProgress?.currentModuleName || 'Start Learning'}
                       </p>
                       
                       <div className="flex items-center gap-4 md:gap-8">
@@ -138,7 +206,7 @@ export default function Dashboard() {
 
                     <button 
                       onClick={() => navigate(`/courses/${course.id || course._id}`)}
-                      className="w-full sm:w-auto px-8 md:px-10 py-3 md:py-4 bg-slate-50 text-slate-700 font-black rounded-xl md:rounded-2xl hover:bg-indigo-600 hover:text-white transition-all text-sm md:text-base"
+                      className="w-full sm:w-auto px-8 md:px-10 py-3 md:py-4 bg-slate-50 text-slate-700 font-black rounded-xl md:rounded-2xl hover:bg-indigo-600 hover:text-white transition-all text-sm md:text-base shadow-sm hover:shadow-lg hover:shadow-indigo-200"
                     >
                       Resume
                     </button>
@@ -167,7 +235,7 @@ export default function Dashboard() {
           </div>
           
           <div className="relative space-y-8 md:space-y-14 flex-1">
-            {roadmapSteps.map((step, index) => {
+            {roadmapSteps.length > 0 ? roadmapSteps.map((step, index) => {
               let stepColor = 'bg-slate-200';
               if (step.status === 'Done') stepColor = 'bg-emerald-500';
               if (step.status === 'Active') stepColor = 'bg-indigo-600';
@@ -175,24 +243,26 @@ export default function Dashboard() {
               return (
                 <div key={step.id} className="relative flex items-start gap-4 md:gap-8">
                   {index !== roadmapSteps.length - 1 && (
-                    <div className="absolute left-[9px] md:left-[13px] top-8 md:top-10 bottom-[-32px] md:bottom-[-40px] w-[2px] md:w-[4px] bg-slate-100"></div>
+                    <div className={`absolute left-[9px] md:left-[13px] top-8 md:top-10 bottom-[-32px] md:bottom-[-40px] w-[2px] md:w-[4px] ${step.status === 'Done' ? 'bg-emerald-200' : 'bg-slate-100'}`}></div>
                   )}
                   
-                  <div className={`relative z-10 w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center border-[3px] md:border-4 border-white shadow-sm ${stepColor}`}>
+                  <div className={`relative z-10 w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center border-[3px] md:border-4 border-white shadow-sm transition-colors ${stepColor}`}>
                     {step.status === 'Locked' && <Lock className="w-2.5 h-2.5 md:w-3 md:h-3 text-slate-400" />}
                   </div>
                   
                   <div className="space-y-1">
-                    <h3 className={`font-black text-sm md:text-xl ${step.status === 'Locked' ? 'text-slate-300' : 'text-slate-800'}`}>
+                    <h3 className={`font-black text-sm md:text-xl transition-colors ${step.status === 'Locked' ? 'text-slate-300' : 'text-slate-800'}`}>
                       Step {step.id}: {step.title}
                     </h3>
-                    <p className={`text-[10px] md:text-sm font-black uppercase tracking-widest ${step.status === 'Active' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                    <p className={`text-[10px] md:text-sm font-black uppercase tracking-widest ${step.status === 'Active' ? 'text-indigo-600' : step.status === 'Done' ? 'text-emerald-500' : 'text-slate-400'}`}>
                       [{step.status}]
                     </p>
                   </div>
                 </div>
               );
-            })}
+            }) : (
+              <p className="text-slate-400 text-sm italic">Memuat roadmap...</p>
+            )}
           </div>
 
           <button 

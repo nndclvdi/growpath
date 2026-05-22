@@ -9,32 +9,27 @@ export default function CourseDetail() {
 
   const {
     courses,
-    markCourseCompleted,
+    markCourseCompleted, // Tetap dipertahankan untuk update UI lokal
     progress
   } = useAppContext();
 
-  // Menyelaraskan pencarian ID agar fleksibel mendeteksi ID numerik asli dari PostgreSQL
+  // Menyelaraskan pencarian ID agar fleksibel
   const course = courses.find(c => String(c.id) === String(id) || String(c._id) === String(id));
 
-  // ========================================================
-  // VIDEO YOUTUBE BERDASARKAN ID ASLI POSTGRESQL (SUDAH FIX)
-  // ========================================================
   const courseVideoIds = {
-  1: 'c9Wg6Cb_YlU', // Video React (Salah mapping)
-  2: 'TNhaISOUy6Q',
-  3: 'Oe421EPjeBE', // ID 3 malah video Node.js
-};
+    1: 'c9Wg6Cb_YlU', 
+    2: 'TNhaISOUy6Q',
+    3: 'Oe421EPjeBE', 
+  };
 
   const [completedLessons, setCompletedLessons] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // State untuk loading tombol
   
-  // Referensi untuk menyimpan instance player YouTube
   const playerRef = useRef(null);
 
-  // Fungsi untuk memuat YouTube Iframe API
   useEffect(() => {
     if (isPlaying && (courseVideoIds[course?.id] || courseVideoIds[course?._id])) {
-      // Cek apakah script API sudah ada di halaman
       if (!window.YT) {
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
@@ -59,8 +54,8 @@ export default function CourseDetail() {
     playerRef.current = new window.YT.Player(`Youtubeer-${currentId}`, {
       videoId: courseVideoIds[String(currentId)] || 'c9Wg6Cb_YlU',
       playerVars: {
-        autoplay: 1, // Otomatis main
-        rel: 0,      // Tidak tampilkan video terkait di akhir
+        autoplay: 1, 
+        rel: 0,      
       },
       events: {
         'onStateChange': onPlayerStateChange
@@ -69,7 +64,6 @@ export default function CourseDetail() {
   };
 
   const onPlayerStateChange = (event) => {
-    // window.YT.PlayerState.ENDED bernilai 0
     if (event.data === 0) {
       console.log("Video selesai ditonton!");
       handleVideoCompletion();
@@ -85,8 +79,48 @@ export default function CourseDetail() {
       setCompletedLessons(allLessonIds);
     }
     
-    markCourseCompleted(course.id || course._id);
-    alert('Selamat! Anda telah menyelesaikan materi ini.');
+    // Otomatis tembak ke backend jika video habis
+    handleFinishCourse();
+  };
+
+  // ==========================================
+  // FUNGSI BARU: KIRIM DATA KE BACKEND
+  // ==========================================
+  const handleFinishCourse = async () => {
+    if (!course) return;
+    const currentId = course.id || course._id;
+
+    try {
+      setIsSubmitting(true);
+      
+      // Tembak API Backend yang sudah kita buat
+      const response = await fetch(`http://localhost:5000/api/courses/${currentId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // WAJIB ADA agar session/cookie user terbaca backend
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update state lokal (React Context)
+        if (markCourseCompleted) markCourseCompleted(currentId);
+        
+        alert("🎉 Selamat! Kursus berhasil diselesaikan.");
+        
+        // Arahkan otomatis ke halaman Progress untuk melihat hasilnya!
+        navigate('/progress');
+      } else {
+        alert(`Gagal: ${data.message || 'Terjadi kesalahan'}`);
+      }
+    } catch (error) {
+      console.error("Error completing course:", error);
+      alert("Gagal terhubung ke server.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!course) {
@@ -111,14 +145,6 @@ export default function CourseDetail() {
       newCompleted = [...completedLessons, lessonId];
     }
     setCompletedLessons(newCompleted);
-    
-    const totalLessonsLength = Array.isArray(course.lessons) 
-      ? course.lessons.length 
-      : (Number(course.lessons) || 0);
-
-    if (newCompleted.length === totalLessonsLength) {
-      markCourseCompleted(course.id || course._id);
-    }
   };
 
   return (
@@ -175,8 +201,6 @@ export default function CourseDetail() {
               <p className="text-slate-500 leading-relaxed">
                 {course.description && course.description !== '[null]' ? course.description : "Learn the principles from scratch."}
               </p>
-              <div className="h-2 bg-slate-50 rounded-full w-full"></div>
-              <div className="h-2 bg-slate-50 rounded-full w-3/4"></div>
             </div>
           </div>
         </div>
@@ -279,6 +303,21 @@ export default function CourseDetail() {
                   </p>
                 )}
               </div>
+
+              {/* ======================================= */}
+              {/* TOMBOL TANDAI SELESAI (DITAMBAHKAN) */}
+              {/* ======================================= */}
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <button
+                  onClick={handleFinishCourse}
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl font-bold hover:from-indigo-700 hover:to-indigo-600 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle2 size={20} />
+                  {isSubmitting ? 'Memproses...' : 'Tandai Selesai & Ambil Reward'}
+                </button>
+              </div>
+
             </div>
           </div>
         </div>

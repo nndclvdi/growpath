@@ -1,19 +1,24 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { CheckCircle, Circle, Lock, Zap, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // 1. Import useNavigate
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 
 export default function Roadmap() {
-  const { progress, toggleRoadmapItem } = useAppContext();
+  const { user, progress, toggleRoadmapItem } = useAppContext();
   const [phases, setPhases] = useState([]);
-  const navigate = useNavigate(); // 2. Inisialisasi navigate
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/roadmaps')
-      .then((res) => res.json())
-      .then((data) => {
+    const fetchRoadmaps = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/roadmaps');
+        if (!res.ok) throw new Error('Gagal mengambil data roadmap');
+        
+        const data = await res.json();
         const formatted = data.map((item, index) => ({
           id: `phase${index + 1}`,
+          dbId: item.id, 
           title: item.title,
           description: item.description,
           items: [
@@ -22,32 +27,67 @@ export default function Roadmap() {
           ],
         }));
         setPhases(formatted);
-      })
-      .catch(console.log);
+      } catch (error) {
+        console.error("Error Fetching Roadmaps:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRoadmaps();
   }, []);
+
+  const handleToggleTask = async (phaseId, itemId) => {
+    toggleRoadmapItem(phaseId, itemId);
+
+    if (user?.id) {
+      try {
+        await fetch(`http://localhost:5000/api/roadmaps/progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            phaseId: phaseId,
+            taskId: itemId
+          }),
+          credentials: 'include'
+        });
+      } catch (error) {
+        console.error("Gagal sinkronisasi progress roadmap ke server", error);
+      }
+    }
+  };
 
   const processedPhases = useMemo(() => {
     return phases.map((phase, index) => {
       const checklist = progress.roadmapChecklist[phase.id] || [];
-      const isCompleted = checklist.length === phase.items.length && phase.items.length > 0;
+      
+      // PERBAIKAN 1: Cek apakah SEMUA item yang ada di halaman depan sudah dicentang
+      const isCompleted = phase.items.length > 0 && phase.items.every(item => checklist.includes(item.id));
+
+      // PERBAIKAN 2: Batasi nilai progress maksimal 100% (karena bisa ada tambahan dari halaman detail)
+      let currentProgress = Math.round((checklist.length / phase.items.length) * 100);
+      if (currentProgress > 100 || isCompleted) currentProgress = 100;
 
       if (index === 0) {
         return {
           ...phase,
           isLocked: false,
-          progress: Math.round((checklist.length / phase.items.length) * 100),
+          progress: currentProgress,
           isCompleted,
         };
       }
 
       const prev = phases[index - 1];
       const prevChecklist = progress.roadmapChecklist[prev?.id] || [];
-      const prevCompleted = prevChecklist.length === prev?.items.length && prev?.items?.length > 0;
+      
+      // PERBAIKAN 3: Gunakan .every() juga untuk mengecek penyelesaian phase sebelumnya
+      const prevCompleted = prev?.items?.length > 0 && prev.items.every(item => prevChecklist.includes(item.id));
 
       return {
         ...phase,
         isLocked: !prevCompleted,
-        progress: Math.round((checklist.length / phase.items.length) * 100),
+        progress: currentProgress,
         isCompleted,
       };
     });
@@ -62,13 +102,15 @@ export default function Roadmap() {
     return xp;
   }, [processedPhases, progress]);
 
+  if (isLoading) return <div className="text-center py-20 font-medium text-slate-500">Memuat Roadmap...</div>;
+
   return (
     <div className="max-w-5xl mx-auto p-8 animate-in fade-in duration-500">
       {/* HEADER */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-extrabold text-slate-900">Your Learning Roadmap</h1>
         <p className="text-slate-500 mt-3 text-lg">Follow this path to master your skills step by step</p>
-        <div className="mt-4 flex justify-center items-center gap-2 text-sm font-semibold text-slate-700 bg-yellow-50 w-max mx-auto px-4 py-2 rounded-full border border-yellow-100">
+        <div className="mt-4 flex justify-center items-center gap-2 text-sm font-semibold text-slate-700 bg-yellow-50 w-max mx-auto px-4 py-2 rounded-full border border-yellow-100 shadow-sm">
           <Zap className="text-yellow-500" fill="currentColor" size={18} />
           <span>Total XP: {totalXP}</span>
         </div>
@@ -88,9 +130,9 @@ export default function Roadmap() {
 
           if (!phase.isLocked) {
             if (phase.isCompleted) {
-              themeClass = "border-green-200 shadow-[0_0_15px_rgba(34,197,94,0.1)]";
-              iconClass = "bg-green-500 text-white border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]";
-              badge = { text: "Completed", class: "bg-green-500 text-white" };
+              themeClass = "border-emerald-200 shadow-[0_0_15px_rgba(52,211,153,0.1)]";
+              iconClass = "bg-emerald-500 text-white border-emerald-500 shadow-[0_0_10px_rgba(52,211,153,0.4)]";
+              badge = { text: "Completed", class: "bg-emerald-500 text-white" };
             } else {
               themeClass = "border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.15)]";
               iconClass = "bg-indigo-600 text-white border-indigo-600 shadow-[0_0_10px_rgba(99,102,241,0.4)]";
@@ -127,7 +169,7 @@ export default function Roadmap() {
                     return (
                       <div
                         key={item.id}
-                        onClick={() => !phase.isLocked && toggleRoadmapItem(phase.id, item.id)}
+                        onClick={() => !phase.isLocked && handleToggleTask(phase.id, item.id)}
                         className={`flex items-center gap-3 p-3 rounded-xl border border-transparent transition-all ${
                           phase.isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-slate-50 hover:border-slate-100'
                         }`}
@@ -145,7 +187,7 @@ export default function Roadmap() {
                   })}
                 </div>
 
-                {/* BUTTON ACTION - 3. Tambahkan fungsi onClick navigate */}
+                {/* BUTTON ACTION */}
                 {!phase.isLocked && (
                   <button 
                     onClick={() => navigate(`/roadmap/${phase.id}`)}
