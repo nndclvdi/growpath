@@ -1,68 +1,77 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
-import { Users, ClipboardList, Target, TrendingUp, ArrowRight, BrainCircuit, Lightbulb, Code2, MoreVertical } from 'lucide-react';
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, Tooltip } from 'recharts';
+import { Users, ClipboardList, Target, TrendingUp, LogOut } from 'lucide-react';
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar } from 'recharts';
 
 export default function AdminDashboard() {
-  const { user } = useAppContext();
+  const { logout } = useAppContext();
+  const navigate = useNavigate();
+  const [data, setData] = useState({ 
+    stats: { totalUsers: 0, activeAssessments: 0, matches: 0, progress: 0 }, 
+    recentActivities: [] 
+  });
 
-  const stats = [
-    { title: 'Total Users', value: '14,284', trend: '+12.5%', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { title: 'Active Assessments', value: '3,192', trend: '+8.2%', icon: ClipboardList, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-    { title: 'Talent Matches', value: '8,439', trend: '+24.1%', icon: Target, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-    { title: 'Rec. Progress', value: '92%', trend: '+2.4%', icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/admin/stats', { credentials: 'include' });
+        if (res.status === 403) {
+            console.error("Akses Ditolak: Silakan Login Admin");
+            return;
+        }
+        const json = await res.json();
+        setData(json);
+      } catch (err) { console.error("Error loading dashboard:", err); }
+    };
+    fetchData();
+  }, []);
 
-  const radarData = [
-    { subject: 'Creative', A: 110, fullMark: 150 },
-    { subject: 'Analytical', A: 130, fullMark: 150 },
-    { subject: 'Technical', A: 100, fullMark: 150 },
-    { subject: 'Leadership', A: 90, fullMark: 150 },
-    { subject: 'Communication', A: 120, fullMark: 150 },
-    { subject: 'Adaptability', A: 140, fullMark: 150 },
-  ];
-
-  const queueItems = [
-    { id: 'REQ-1042', priority: 'HIGH', priorityColor: 'text-red-400 bg-red-400/10', title: 'Review edge-case assessment #492' },
-    { id: 'REQ-1043', priority: 'MEDIUM', priorityColor: 'text-yellow-400 bg-yellow-400/10', title: 'Validate new "Spatial Design" category' },
-  ];
-
-  const trendingPaths = [
-    { title: 'AI Product Manager', match: '98%', icon: BrainCircuit, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
-    { title: 'Data Storyteller', match: '94%', icon: Lightbulb, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-    { title: 'Cloud Architect', match: '89%', icon: Code2, color: 'text-teal-400', bg: 'bg-teal-400/10' },
-  ];
-
-  const activities = [
-    { name: 'Emma Stone', action: 'completed the "Tech Core" assessment', time: '2m ago', avatar: 'E' },
-    { name: 'James Wilson', action: 'matched with "AI Product Manager"', time: '15m ago', avatar: 'J' },
-    { name: 'Sophia Lee', action: 'started "Creative Direction" path', time: '1h ago', avatar: 'S' },
-    { name: 'Lucas Brown', action: 'updated career preferences', time: '3h ago', avatar: 'L' },
-  ];
+  const handleLogout = async () => {
+    if (window.confirm("Keluar dari Admin Dashboard?")) {
+      const success = await logout();
+      if (success) {
+        navigate('/login-admin', { replace: true });
+      }
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-[1400px] mx-auto">
-      
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, idx) => (
-          <div key={idx} className="bg-[#181E2E] p-6 rounded-2xl border border-slate-700/50 shadow-sm relative overflow-hidden">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-[13px] font-medium text-slate-400">{stat.title}</p>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${stat.bg} ${stat.color}`}>
-                <stat.icon size={16} />
-              </div>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-white mb-2">{stat.value}</p>
-              <p className="text-xs text-emerald-400 font-medium">
-                {stat.trend} <span className="text-slate-500 font-normal">vs last month</span>
-              </p>
-            </div>
+    <div className="p-8 bg-[#0F172A] min-h-screen text-white">
+      <div className="flex justify-between items-center bg-[#181E2E] p-6 rounded-2xl border border-slate-700 mb-8">
+        <h1 className="text-2xl font-bold">Admin Central</h1>
+        <button onClick={handleLogout} className="text-red-400 flex items-center gap-2 font-bold"><LogOut size={18}/> Logout</button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        {[
+          { title: 'Total Users', val: data.stats?.totalUsers, color: 'text-blue-400' },
+          { title: 'Assessments', val: data.stats?.activeAssessments, color: 'text-purple-400' },
+          { title: 'Matches', val: data.stats?.matches, color: 'text-emerald-400' },
+          { title: 'Progress', val: data.stats?.progress + '%', color: 'text-orange-400' }
+        ].map((s, i) => (
+          <div key={i} className="bg-[#181E2E] p-6 rounded-2xl border border-slate-700">
+            <p className="text-slate-400 text-xs uppercase">{s.title}</p>
+            <p className={`text-3xl font-bold ${s.color}`}>{s.val}</p>
           </div>
         ))}
       </div>
 
+<<<<<<< HEAD
+      <div className="bg-[#181E2E] p-6 rounded-2xl border border-slate-700 h-[300px]">
+         <h2 className="font-bold mb-4">Talent Distribution</h2>
+         <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={[{subject: 'Users', A: data.stats?.totalUsers || 0}, {subject: 'Activity', A: data.stats?.progress || 0}]}>
+              <PolarGrid stroke="#334155" />
+              <PolarAngleAxis dataKey="subject" />
+              <Radar dataKey="A" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.2} />
+            </RadarChart>
+         </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+=======
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left Column */}
@@ -184,3 +193,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+>>>>>>> 897df25ea1dfa544a23ae9de78c005ceb797c597

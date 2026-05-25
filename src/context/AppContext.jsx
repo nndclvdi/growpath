@@ -1,24 +1,40 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect
+} from 'react';
 
 const AppContext = createContext();
 
-// Mock initial data
+// =========================
+// MOCK INITIAL DATA
+// =========================
 const initialCourses = [
-  { id: 1, title: 'UI/UX Design Masterclass', author: 'Sarah Drasner', duration: '12h 30m', rating: 4.9, students: '12k', image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=600', category: 'Design', description: 'Learn the principles of user interface and user experience design from scratch. We will cover color theory, typography, layout, and how to create scalable design systems.', lessons: [
-    { id: 1, title: 'Introduction to Design Systems', duration: '15:20', type: 'video' },
-    { id: 2, title: 'Color Theory & Typography', duration: '22:15', type: 'video' },
-    { id: 3, title: 'Creating Reusable Components', duration: '18:40', type: 'video' },
-    { id: 4, title: 'Course Assignment', duration: '30:00', type: 'assignment' },
-  ]},
-  { id: 2, title: 'Advanced React Patterns', author: 'Kent C. Dodds', duration: '8h 15m', rating: 4.8, students: '8k', image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=600', category: 'Frontend', description: 'Master high-order components, render props, and custom hooks.', lessons: [
-    { id: 1, title: 'Higher Order Components', duration: '20:00', type: 'video' }
-  ]},
-];
-
-const initialAvailableAssessments = [
-  { id: '1', title: 'React Fundamentals', category: 'Frontend', duration: '30 mins' },
-  { id: '2', title: 'Advanced CSS Layouts', category: 'Design', duration: '45 mins' },
-  { id: '3', title: 'JavaScript Algorithms', category: 'Programming', duration: '60 mins' },
+  {
+    id: 1,
+    title: 'UI/UX Design Masterclass',
+    author: 'Sarah Drasner',
+    duration: '12h 30m',
+    rating: 4.9,
+    students: '12k',
+    image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=600',
+    category: 'Design',
+    description: 'Learn the principles of user interface and user experience design from scratch.',
+    lessons: [{ id: 1, title: 'Introduction to Design Systems', duration: '15:20', type: 'video' }]
+  },
+  {
+    id: 2,
+    title: 'Advanced React Patterns',
+    author: 'Kent C. Dodds',
+    duration: '8h 15m',
+    rating: 4.8,
+    students: '8k',
+    image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=600',
+    category: 'Frontend',
+    description: 'Master high-order components, render props, and custom hooks.',
+    lessons: [{ id: 1, title: 'Higher Order Components', duration: '20:00', type: 'video' }]
+  },
 ];
 
 const initialTalentMappings = [
@@ -27,107 +43,287 @@ const initialTalentMappings = [
 ];
 
 export const AppProvider = ({ children }) => {
-  // User & Progress State
+  // =========================
+  // STATE MANAGEMENT
+  // =========================
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('growpath_user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    return savedUser && savedUser !== "null" ? JSON.parse(savedUser) : null;
   });
+
+  const [loading, setLoading] = useState(true);
 
   const [progress, setProgress] = useState(() => {
-    const savedProgress = localStorage.getItem('growpath_progress');
-    return savedProgress ? JSON.parse(savedProgress) : { completedCourses: [], roadmapChecklist: {}, assessments: [] };
+    const saved = localStorage.getItem('growpath_progress');
+    return saved ? JSON.parse(saved) : { 
+      completedCourses: [], 
+      activeCourses: [], 
+      roadmapChecklist: {}, 
+      assessments: [] 
+    };
   });
 
-  // Global Content State
-  const [courses, setCourses] = useState(() => {
-    const saved = localStorage.getItem('growpath_courses');
-    return saved ? JSON.parse(saved) : initialCourses;
-  });
+  // [FIXED]: Diubah murni menjadi array kosong secara ringkas agar tidak merusak compile React
+  const [courses, setCourses] = useState([]);
 
-  const [availableAssessments, setAvailableAssessments] = useState(() => {
-    const saved = localStorage.getItem('growpath_available_assessments');
-    return saved ? JSON.parse(saved) : initialAvailableAssessments;
-  });
+  // Pure state array kosong karena bersumber langsung dari database PostgreSQL
+  const [availableAssessments, setAvailableAssessments] = useState([]);
 
   const [talentMappings, setTalentMappings] = useState(() => {
     const saved = localStorage.getItem('growpath_talent_mappings');
     return saved ? JSON.parse(saved) : initialTalentMappings;
   });
 
-  // Persist State
-  useEffect(() => { localStorage.setItem('growpath_user', JSON.stringify(user)); }, [user]);
-  useEffect(() => { localStorage.setItem('growpath_progress', JSON.stringify(progress)); }, [progress]);
-  useEffect(() => { localStorage.setItem('growpath_courses', JSON.stringify(courses)); }, [courses]);
-  useEffect(() => { localStorage.setItem('growpath_available_assessments', JSON.stringify(availableAssessments)); }, [availableAssessments]);
-  useEffect(() => { localStorage.setItem('growpath_talent_mappings', JSON.stringify(talentMappings)); }, [talentMappings]);
+  // =========================
+  // SYNC AUTH STATUS
+  // =========================
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/check-auth', { 
+          method: 'GET',
+          credentials: 'include' 
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+        } else if (response.status === 401) {
+          setUser(null);
+          localStorage.removeItem('growpath_user');
+          localStorage.removeItem('adminData');
+        }
+      } catch (err) {
+        console.log("Koneksi tidak stabil, menggunakan sesi lokal.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
-  // Auth & Profile
+  // ========================================================
+  // FETCH REAL DATA ASSESSMENTS DARI POSTGRESQL (OPTIMIZED)
+  // ========================================================
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/assessments', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Pengaman ekstra jika data dibungkus dalam properti .assessments atau .data oleh backend
+          const cleanAssessments = Array.isArray(data) 
+            ? data 
+            : (data.assessments || data.data || []);
+            
+          setAvailableAssessments(cleanAssessments);
+        } else {
+          console.error("Gagal mengambil data kuis dari server.");
+        }
+      } catch (error) {
+        console.error("Koneksi gagal terhubung ke API assessments:", error);
+      }
+    };
+
+    if (user) {
+      fetchAssessments();
+    }
+  }, [user]);
+
+  // ========================================================
+  // FETCH REAL DATA COURSES DARI POSTGRESQL (OPTIMIZED)
+  // ========================================================
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/courses', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Pengaman ekstra: Mendeteksi apakah respons berbentuk array langsung 
+          // atau dibungkus objek nested seperti data.courses / data.courses.data
+          const cleanCourses = Array.isArray(data)
+            ? data
+            : (data.courses || data.data || []);
+            
+          setCourses(cleanCourses);
+        } else {
+          console.error("Gagal mengambil data courses dari server.");
+        }
+      } catch (error) {
+        console.error("Koneksi gagal terhubung ke API courses:", error);
+      }
+    };
+
+    if (user) {
+      fetchCourses();
+    }
+  }, [user]);
+
+  // =========================
+  // PERSISTENCE (LOCAL STORAGE)
+  // =========================
+  useEffect(() => {
+    localStorage.setItem('growpath_user', JSON.stringify(user));
+  }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem('growpath_progress', JSON.stringify(progress));
+  }, [progress]);
+
+  // Sinkronisasi LocalStorage untuk courses dan assessments sudah dicabut demi keamanan integrasi PostgreSQL
+
+  useEffect(() => {
+    localStorage.setItem('growpath_talent_mappings', JSON.stringify(talentMappings));
+  }, [talentMappings]);
+
+  // =========================
+  // AUTH ACTIONS
+  // =========================
   const login = (userData) => setUser(userData);
-  const logout = () => setUser(null);
-  const updateProfile = (data) => setUser({ ...user, ...data });
 
-  // Progress Methods
+  const logout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', { 
+        method: 'POST', 
+        credentials: 'include' 
+      });
+      if (response.ok) {
+        setUser(null);
+        localStorage.removeItem('growpath_user');
+        localStorage.removeItem('adminData');
+        return true;
+      }
+    } catch (error) {
+      console.error("Logout gagal:", error);
+    }
+    return false;
+  };
+
+  const updateProfile = (data) => setUser(prev => ({ ...prev, ...data }));
+
+  // =========================
+  // DATA ACTIONS (CRUD)
+  // =========================
   const toggleRoadmapItem = (phaseId, itemId) => {
     setProgress(prev => {
-      const currentChecklist = prev.roadmapChecklist[phaseId] || [];
-      let newChecklist;
-      if (currentChecklist.includes(itemId)) {
-        newChecklist = currentChecklist.filter(id => id !== itemId);
-      } else {
-        newChecklist = [...currentChecklist, itemId];
-      }
-      return { ...prev, roadmapChecklist: { ...prev.roadmapChecklist, [phaseId]: newChecklist } };
+      const current = prev.roadmapChecklist[phaseId] || [];
+      const next = current.includes(itemId) ? current.filter(id => id !== itemId) : [...current, itemId];
+      return { ...prev, roadmapChecklist: { ...prev.roadmapChecklist, [phaseId]: next } };
     });
   };
 
   const saveAssessment = (assessmentResult) => {
-    const attemptId = Date.now().toString();
+    const attemptId = assessmentResult.attemptId || Date.now().toString();
     const newAssessment = { ...assessmentResult, attemptId };
-    setProgress(prev => ({
-      ...prev,
-      assessments: [...prev.assessments, newAssessment]
-    }));
+    setProgress(prev => ({ ...prev, assessments: [...prev.assessments, newAssessment] }));
     return attemptId;
   };
 
   const deleteAssessmentHistory = (attemptId) => {
-    setProgress(prev => ({
-      ...prev,
-      assessments: prev.assessments.filter(a => a.attemptId !== attemptId)
-    }));
+    setProgress(prev => ({ ...prev, assessments: prev.assessments.filter(a => a.attemptId !== attemptId) }));
   };
 
   const markCourseCompleted = (courseId) => {
     setProgress(prev => {
-      if (!prev.completedCourses.includes(courseId)) {
-        return { ...prev, completedCourses: [...prev.completedCourses, courseId] };
+      const targetId = courseId.toString();
+
+      const updatedCompleted = prev.completedCourses.map(id => id.toString()).includes(targetId)
+        ? prev.completedCourses
+        : [...prev.completedCourses, targetId];
+
+      let updatedActive = prev.activeCourses?.map(ac => {
+        if (ac.courseId.toString() === targetId) {
+          return { ...ac, percentage: 100, currentModuleName: 'Selesai' };
+        }
+        return ac;
+      }) || [];
+
+      const hasActive = prev.activeCourses?.some(ac => ac.courseId.toString() === targetId);
+      if (!hasActive) {
+        updatedActive.push({
+          courseId: targetId,
+          percentage: 100,
+          currentModuleName: 'Selesai'
+        });
       }
-      return prev;
+
+      return { 
+        ...prev, 
+        completedCourses: updatedCompleted,
+        activeCourses: updatedActive
+      };
     });
   };
 
-  // Admin Global CRUD Methods
-  const addCourse = (course) => setCourses(prev => [...prev, { ...course, id: Date.now() }]);
-  const updateCourse = (id, data) => setCourses(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
-  const deleteCourse = (id) => setCourses(prev => prev.filter(c => c.id !== id));
+  const addCourse = (course) => {
+    const newC = { ...course, id: course._id || course.id || Date.now().toString() };
+    setCourses(prev => [...prev, newC]);
+  };
 
-  const addAssessment = (assessment) => setAvailableAssessments(prev => [...prev, { ...assessment, id: Date.now().toString() }]);
-  const updateAssessment = (id, data) => setAvailableAssessments(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
-  const deleteAssessment = (id) => setAvailableAssessments(prev => prev.filter(a => a.id !== id));
+  const updateCourse = (updatedData) => {
+    setCourses(prev => prev.map(c => 
+      (c.id === updatedData.id || c._id === updatedData._id || c.id === updatedData._id) 
+        ? { ...c, ...updatedData } 
+        : c
+    ));
+  };
 
-  const addTalentMapping = (talent) => setTalentMappings(prev => [...prev, { ...talent, id: Date.now() }]);
+  const deleteCourse = (id) => {
+    setCourses(prev => prev.filter(c => c.id !== id && c._id !== id));
+  };
+
+  // ==========================================
+  // ASSESSMENTS ACTIONS
+  // ==========================================
+  const addAssessment = (assessment) => {
+    const newA = { ...assessment, id: assessment._id || assessment.id || Date.now().toString() };
+    setAvailableAssessments(prev => [...prev, newA]);
+  };
+
+  const updateAssessment = (updatedData) => {
+    setAvailableAssessments(prev => prev.map(a => 
+      (a.id === updatedData.id || a._id === updatedData._id || a.id === updatedData._id) 
+        ? { ...a, ...updatedData } 
+        : a
+    ));
+  };
+
+  const deleteAssessment = (id) => {
+    setAvailableAssessments(prev => prev.filter(a => a.id !== id && a._id !== id));
+  };
+
+  // =========================
+  // TALENT MAPPING ACTIONS
+  // =========================
+  const addTalentMapping = (t) => setTalentMappings(prev => [...prev, { ...t, id: Date.now() }]);
   const updateTalentMapping = (id, data) => setTalentMappings(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
   const deleteTalentMapping = (id) => setTalentMappings(prev => prev.filter(t => t.id !== id));
 
   return (
-    <AppContext.Provider value={{ 
-      user, login, logout, updateProfile, 
-      progress, toggleRoadmapItem, saveAssessment, deleteAssessmentHistory, markCourseCompleted,
-      courses, addCourse, updateCourse, deleteCourse,
-      availableAssessments, addAssessment, updateAssessment, deleteAssessment,
-      talentMappings, addTalentMapping, updateTalentMapping, deleteTalentMapping
-    }}>
-      {children}
+    <AppContext.Provider
+      value={{
+        user, login, logout, updateProfile, loading,
+        progress, toggleRoadmapItem, saveAssessment, deleteAssessmentHistory, markCourseCompleted,
+        courses, addCourse, updateCourse, deleteCourse,
+        availableAssessments, addAssessment, updateAssessment, deleteAssessment,
+        talentMappings, addTalentMapping, updateTalentMapping, deleteTalentMapping
+      }}
+    >
+      {!loading ? children : (
+        <div className="h-screen w-screen flex items-center justify-center bg-[#0F172A]">
+           <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 };

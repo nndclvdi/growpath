@@ -1,123 +1,146 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
-import { Target, Zap, Award, Star } from 'lucide-react';
+import { Target, Zap, Award, Star, Clock, TrendingUp, BookOpen, Trophy } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
+
+// Memetakan string dari database ke komponen ikon Lucide
+const iconMap = {
+  Target: Target,
+  Zap: Zap,
+  Award: Award,
+  Star: Star,
+  Clock: Clock,
+  TrendingUp: TrendingUp,
+  BookOpen: BookOpen,
+  Trophy: Trophy
+};
 
 export default function Progress() {
-  const activityData = [
-    { name: 'Mon', hours: 2 },
-    { name: 'Tue', hours: 3 },
-    { name: 'Wed', hours: 1.5 },
-    { name: 'Thu', hours: 4 },
-    { name: 'Fri', hours: 2.5 },
-    { name: 'Sat', hours: 5 },
-    { name: 'Sun', hours: 3.5 },
-  ];
+  const { user } = useAppContext();
+  
+  // State lokal untuk menyimpan data dari Database
+  const [data, setData] = useState({ 
+    stats: { totalHours: 0, streak: 0, completed: 0, achievements: 0 },
+    activityData: [], 
+    skillData: [], 
+    badges: [] 
+  });
+  const [loading, setLoading] = useState(true);
 
-  const skillData = [
-    { subject: 'React', A: 90, fullMark: 100 },
-    { subject: 'CSS', A: 85, fullMark: 100 },
-    { subject: 'JS', A: 75, fullMark: 100 },
-    { subject: 'Design', A: 60, fullMark: 100 },
-    { subject: 'Node', A: 40, fullMark: 100 },
-    { subject: 'Testing', A: 65, fullMark: 100 },
-  ];
+  useEffect(() => {
+    // Fungsi untuk menarik data berdasarkan ID user yang login
+    const fetchProgressData = async () => {
+      // Pastikan user dan user.id benar-benar ada sebelum memanggil API
+      if (!user?.id) return;
+      
+      try {
+        // ✅ PERBAIKAN: Menggunakan backtick (`) agar ${user.id} terbaca sebagai angka
+        const response = await fetch(`http://localhost:5000/api/progress/${user.id}`);
+        
+        // Pengecekan status response
+        if (!response.ok) {
+           throw new Error(`Server merespons dengan status: ${response.status}`);
+        }
 
-  const badges = [
-    { id: 1, title: 'CSS Master', date: 'Yesterday', icon: Award, color: 'text-teal-500', bg: 'bg-teal-100' },
-    { id: 2, title: 'React Pro', date: '3 days ago', icon: Star, color: 'text-blue-500', bg: 'bg-blue-100' },
-    { id: 3, title: 'Early Bird', date: '1 week ago', icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-100' },
-    { id: 4, title: 'First Steps', date: '2 weeks ago', icon: Target, color: 'text-purple-500', bg: 'bg-purple-100' },
-  ];
+        const result = await response.json();
+        setData(result);
+        
+      } catch (error) {
+        console.error("Gagal mengambil data progress:", error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Custom Tooltip for BarChart
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-slate-800 text-white p-3 rounded-lg shadow-xl text-sm font-medium border border-slate-700">
-          <p className="mb-1 text-slate-300">{label}</p>
-          <p className="text-teal-400">{`${payload[0].value} Hours`}</p>
-        </div>
-      );
-    }
-    return null;
-  };
+    fetchProgressData();
+  }, [user]);
+
+  if (loading) return <div className="text-center p-10 font-medium text-slate-500">Memuat data progress...</div>;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">Learning Progress</h1>
-        <p className="text-slate-500 mt-2 text-lg">Track your activity and skill growth over time.</p>
+    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      <h1 className="text-2xl font-bold text-slate-800">Learning Progress</h1>
+
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Learning Hours" value={`${data.stats.totalHours}h`} icon={Clock} color="text-indigo-500" bg="bg-indigo-50" />
+        <StatCard label="Current Streak" value={`${data.stats.streak} Days`} icon={TrendingUp} color="text-cyan-500" bg="bg-cyan-50" />
+        <StatCard label="Completed Courses" value={data.stats.completed} icon={BookOpen} color="text-emerald-500" bg="bg-emerald-50" />
+        <StatCard label="Achievements" value={data.stats.achievements} icon={Trophy} color="text-amber-500" bg="bg-amber-50" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Activity Chart */}
-        <div className="bg-white rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-          <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
-            <div className="w-2 h-6 bg-ocean-500 rounded-full"></div>
-            Activity Chart
-          </h2>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#14b8a6" stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 13, fontWeight: 500}} dy={15} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 13, fontWeight: 500}} dx={-10} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
-                <Bar dataKey="hours" fill="url(#barGradient)" radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+      {/* CHARTS SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <ResponsiveContainer width="100%" height={256}>
+            <BarChart data={data.activityData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+              <Tooltip />
+              <Bar dataKey="hours" fill="#6366f1" radius={[4, 4, 4, 4]} barSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Skill Radar */}
-        <div className="bg-white rounded-2xl p-8 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col">
-          <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <div className="w-2 h-6 bg-teal-500 rounded-full"></div>
-            Skill Radar
-          </h2>
-          <div className="flex-1 flex items-center justify-center relative min-h-[250px] -mt-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="75%" data={skillData}>
-                <PolarGrid stroke="#e2e8f0" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }} />
-                <Radar name="Skills" dataKey="A" stroke="#0ea5e9" strokeWidth={3} fill="#0ea5e9" fillOpacity={0.3} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <ResponsiveContainer width="100%" height={256}>
+            <RadarChart data={data.skillData}>
+              <PolarGrid stroke="#e2e8f0" />
+              <PolarAngleAxis dataKey="subject" tick={{fill: '#64748b', fontSize: 10}} />
+              <Radar name="Skills" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.5} />
+            </RadarChart>
+          </ResponsiveContainer>
         </div>
-
       </div>
 
-      {/* Recent Achievements */}
+      {/* RECENT ACHIEVEMENTS */}
       <div className="bg-white rounded-2xl p-8 border border-slate-100 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
-          <div className="w-2 h-6 bg-purple-500 rounded-full"></div>
-          Recent Achievements
-        </h2>
-        
+        <div className="flex items-center gap-2 mb-8 text-indigo-600 font-bold">
+          <Award size={20} />
+          <h2>Recent Achievements</h2>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {badges.map((badge) => (
-            <div key={badge.id} className="border border-slate-100 bg-slate-50/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:bg-white hover:shadow-lg hover:-translate-y-1 transition-all group">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${badge.bg} ${badge.color} group-hover:scale-110 transition-transform shadow-sm`}>
-                <badge.icon size={32} />
-              </div>
-              <h3 className="font-bold text-slate-800">{badge.title}</h3>
-              <p className="text-xs font-medium text-slate-500 mt-1.5 bg-white px-2 py-1 rounded-full border border-slate-200">
-                Unlocked: {badge.date}
-              </p>
+          {data.badges && data.badges.length > 0 ? (
+            data.badges.map((badge, idx) => {
+              const IconComponent = iconMap[badge.icon_name] || Award; 
+              
+              return (
+                <div key={idx} className="flex flex-col items-center">
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg mb-4 transform hover:scale-105 transition-transform cursor-pointer">
+                    <IconComponent size={40} className="text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-sm text-center">{badge.title}</h3>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-full text-center text-slate-400 text-sm py-4">
+              Belum ada pencapaian. Teruslah belajar!
             </div>
-          ))}
+          )}
         </div>
       </div>
 
     </div>
   );
 }
+<<<<<<< HEAD
+
+// Komponen Pembantu
+function StatCard({ label, value, icon: Icon, color, bg }) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-2">
+      <div className={`w-10 h-10 rounded-xl ${bg} ${color} flex items-center justify-center`}>
+        <Icon size={20} />
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
+        <p className="text-xs text-slate-400 font-medium">{label}</p>
+      </div>
+    </div>
+  );
+}
+=======
+>>>>>>> 897df25ea1dfa544a23ae9de78c005ceb797c597

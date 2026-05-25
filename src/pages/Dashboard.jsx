@@ -1,5 +1,5 @@
-import React from 'react';
-import { PlayCircle, Target, Trophy, Clock, Zap, ArrowRight, Play, CheckCircle, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Target, Trophy, Clock, Zap, ArrowRight, Lock, BookOpen, Calendar } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,155 +7,269 @@ export default function Dashboard() {
   const { user, progress, courses } = useAppContext();
   const navigate = useNavigate();
 
+  // State untuk menyimpan data dinamis dari Backend
+  const [dashboardStats, setDashboardStats] = useState({
+    streak: 0,
+    completed: 0,
+    totalHours: 0,
+    achievements: 0
+  });
+  const [roadmapSteps, setRoadmapSteps] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user?.id) return;
+
+      try {
+        // 1. Ambil Data Statistik (Progress)
+        const statRes = await fetch(`http://localhost:5000/api/progress/${user.id}`);
+        if (statRes.ok) {
+          const statData = await statRes.json();
+          setDashboardStats(statData.stats);
+        }
+
+        // 2. Ambil Data Roadmap untuk Sidebar
+        const rmRes = await fetch('http://localhost:5000/api/roadmaps');
+        if (rmRes.ok) {
+          const rmData = await rmRes.json();
+          
+          // Format data roadmap agar sesuai dengan UI Dashboard
+          const formattedRoadmap = rmData.map((item, index) => {
+            const phaseId = `phase${index + 1}`;
+            // Asumsi setiap phase di frontend punya 2 item (category & level)
+            const checklist = progress?.roadmapChecklist?.[phaseId] || [];
+            const isCompleted = checklist.length >= 2;
+
+            let status = 'Locked';
+            if (index === 0) {
+              status = isCompleted ? 'Done' : 'Active';
+            } else {
+              const prevPhaseId = `phase${index}`;
+              const prevChecklist = progress?.roadmapChecklist?.[prevPhaseId] || [];
+              const prevCompleted = prevChecklist.length >= 2;
+              
+              if (prevCompleted) {
+                status = isCompleted ? 'Done' : 'Active';
+              }
+            }
+
+            // Bersihkan judul panjang agar pas di sidebar
+            const shortTitle = item.title.replace(`Step ${index + 1}: `, '').replace(' Roadmap', '');
+
+            return {
+              id: index + 1,
+              title: shortTitle,
+              status: status
+            };
+          });
+
+          setRoadmapSteps(formattedRoadmap.slice(0, 4)); // Ambil maksimal 4 step untuk dashboard
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user, progress?.roadmapChecklist]);
+
+  // 1. MAPPING STATISTIK (Menggunakan data dari Backend)
   const stats = [
-    { title: 'Current Streak', value: '12 Days', icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-100' },
-    { title: 'Courses Done', value: progress.completedCourses.length.toString(), icon: Trophy, color: 'text-ocean-500', bg: 'bg-ocean-100' },
-    { title: 'Hours Learned', value: '36h', icon: Clock, color: 'text-teal-500', bg: 'bg-teal-100' },
-    { title: 'Skills Gained', value: '8', icon: Target, color: 'text-purple-500', bg: 'bg-purple-100' },
+    { 
+      title: 'Current Streak', 
+      value: `${dashboardStats.streak} Days`, 
+      icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-50' 
+    },
+    { 
+      title: 'Courses Done', 
+      value: dashboardStats.completed.toString(), 
+      icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' 
+    },
+    { 
+      title: 'Hours Learned', 
+      value: `${dashboardStats.totalHours}h`, 
+      icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50' 
+    },
+    { 
+      title: 'Skills Gained', 
+      value: dashboardStats.achievements.toString(), 
+      icon: Trophy, color: 'text-indigo-600', bg: 'bg-indigo-50' 
+    },
   ];
 
-  // Roadmap Steps
-  const roadmapSteps = [
-    { id: 1, title: 'Basics', status: 'Done', color: 'bg-ocean-500' },
-    { id: 2, title: 'Fundamentals', status: 'Active', color: 'bg-teal-500' },
-    { id: 3, title: 'Integration', status: 'Locked', color: 'bg-slate-200' },
-    { id: 4, title: 'Advanced', status: 'Locked', color: 'bg-slate-200' },
-  ];
+  // 2. KURSUS YANG SEDANG AKTIF (Fallback aman dari UI lama)
+  const activeCourseIds = progress?.activeCourses?.map(ac => ac.courseId?.toString()) || [];
+  const myActiveCourses = courses?.filter(c => activeCourseIds.includes((c.id || c._id)?.toString())) || [];
+  
+  // Jika user belum punya course aktif, ambil list course default agar dashboard tidak kosong
+  const displayCourses = myActiveCourses.length > 0 ? myActiveCourses.slice(0, 2) : courses?.slice(0, 2) || [];
+
+  if (loading) {
+    return <div className="text-center p-20 text-slate-500 font-medium animate-pulse">Menyiapkan Dashboard...</div>;
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-12 animate-in fade-in duration-500 pb-20 px-4 md:px-8">
       
-      {/* Top Banner High Fidelity */}
-      <div className="bg-gradient-to-r from-ocean-800 to-ocean-600 rounded-3xl p-8 shadow-xl shadow-ocean-500/20 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="absolute right-0 top-0 w-64 h-full bg-white opacity-5 transform skew-x-12 translate-x-16"></div>
-        
-        <div className="flex-1 space-y-4 relative z-10 text-white">
-          <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-bold rounded-full inline-block">
-            Pro Learner
+      {/* Banner Utama */}
+      <div className="bg-gradient-to-br from-indigo-600 via-purple-500 to-cyan-400 rounded-[32px] md:rounded-[48px] p-8 md:p-16 shadow-2xl shadow-indigo-100 relative overflow-hidden">
+        <div className="relative z-10 space-y-4 md:space-y-8 max-w-4xl text-white text-center md:text-left">
+          <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md text-white text-[10px] md:text-sm font-black rounded-full inline-block uppercase tracking-widest">
+            Learning Mode
           </span>
-          <h1 className="text-3xl font-bold">Welcome back, {user?.name.split(' ')[0]}! 👋</h1>
-          <p className="text-ocean-100 max-w-xl text-lg">
-            You've completed 80% of your weekly goal. Keep pushing forward!
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight leading-tight">
+            Welcome back, <br className="block md:hidden" /> {user?.name?.split(' ')[0] || 'Reza'}!
+          </h1>
+          <p className="text-indigo-50 opacity-95 text-base md:text-2xl leading-relaxed font-medium">
+            Continue your learning journey and achieve your goals. You're making great progress!
           </p>
-          <button 
-            onClick={() => navigate('/courses')}
-            className="mt-4 px-6 py-3 bg-white text-ocean-700 font-bold rounded-xl hover:bg-ocean-50 transition-colors shadow-lg shadow-black/10 inline-flex items-center gap-2 transform hover:scale-105"
-          >
-            Resume Learning <ArrowRight size={18} />
-          </button>
-        </div>
-        
-        <div className="relative z-10 shrink-0">
-          <div className="w-48 h-48 rounded-full border-4 border-white/20 p-2 shadow-2xl">
-            <img 
-              src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=400" 
-              alt="Learning" 
-              className="w-full h-full object-cover rounded-full"
-            />
+          <div className="pt-4 flex justify-center md:justify-start">
+            <button 
+              onClick={() => navigate('/courses')}
+              className="w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 bg-white text-indigo-600 font-black rounded-2xl hover:scale-105 transition-all flex items-center justify-center gap-3 md:gap-4 shadow-xl text-lg md:text-xl"
+            >
+              Resume Course <ArrowRight className="w-5 h-5 md:w-7 md:h-7" />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-10">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all flex flex-col items-start gap-4 group">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform`}>
-              <stat.icon size={28} />
+          <div key={index} className="bg-white rounded-[24px] md:rounded-[40px] p-5 md:p-10 border border-slate-100 shadow-sm flex flex-col gap-3 md:gap-6 hover:shadow-lg transition-all">
+            <div className={`w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
+              <stat.icon className="w-5 h-5 md:w-8 md:h-8" />
             </div>
             <div>
-              <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
-              <p className="text-slate-500 text-sm font-medium">{stat.title}</p>
+              <p className="text-xl sm:text-2xl md:text-5xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
+              <p className="text-slate-400 text-[10px] md:text-base font-bold uppercase tracking-widest mt-1 md:mt-2">{stat.title}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Two Columns Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
         
-        {/* Continue Learning (Left, spans 2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-800">Continue Learning</h2>
+        {/* Continue Learning */}
+        <div className="lg:col-span-8 space-y-6 md:space-y-10">
+          <div className="flex items-center justify-between px-2 md:px-4">
+            <h2 className="text-xl md:text-3xl font-black text-slate-800">Continue Learning</h2>
             <button 
               onClick={() => navigate('/courses')}
-              className="text-ocean-600 text-sm font-bold hover:text-ocean-700 flex items-center gap-1 transition-colors"
+              className="text-indigo-600 text-sm md:text-lg font-black flex items-center gap-1 md:gap-2 hover:translate-x-1 transition-transform"
             >
-              View All <ArrowRight size={16} />
+              [ View All ] <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
           
-          <div className="space-y-4">
-            {courses.slice(0, 2).map((course, idx) => (
-              <div key={course.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col sm:flex-row items-center gap-6 group">
-                <div className="w-full sm:w-40 h-28 bg-slate-100 rounded-xl flex items-center justify-center relative overflow-hidden shrink-0 cursor-pointer">
-                  <img src={course.image} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                  <PlayCircle size={36} className="text-white relative z-10 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
-                </div>
-                
-                <div className="flex-1 w-full">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="px-2.5 py-1 bg-ocean-50 text-ocean-600 text-xs font-bold rounded-md">
-                      {course.category}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 line-clamp-1">{course.title}</h3>
-                  <p className="text-slate-500 text-sm mb-3">Next: Module {idx + 2}</p>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-ocean-500 to-teal-400 rounded-full" style={{ width: idx === 0 ? '65%' : '32%' }}></div>
-                    </div>
-                    <span className="text-xs font-bold text-ocean-600">{idx === 0 ? '65%' : '32%'}</span>
-                  </div>
-                </div>
+          <div className="space-y-4 md:space-y-8">
+            {displayCourses.length > 0 ? (
+              displayCourses.map((course) => {
+                const courseProgress = progress?.activeCourses?.find(
+                  ac => ac.courseId?.toString() === (course.id || course._id)?.toString()
+                );
+                const percentage = courseProgress?.percentage || 0;
 
+                return (
+                  <div key={course.id || course._id} className="bg-white rounded-[28px] md:rounded-[40px] p-6 md:p-10 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center gap-6 md:gap-10 group hover:border-indigo-100 hover:shadow-md transition-all">
+                    <div className="hidden sm:flex w-24 h-24 md:w-28 md:h-28 bg-slate-50 rounded-[20px] md:rounded-[30px] items-center justify-center shrink-0 border border-slate-100 overflow-hidden">
+                      {course.image ? (
+                        <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] md:text-sm font-black text-slate-300 uppercase">Thumb</span>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0 space-y-1 md:space-y-2 w-full">
+                      <h3 className="text-lg md:text-2xl font-black text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{course.title}</h3>
+                      <p className="text-slate-400 text-xs md:text-lg font-bold mb-3 md:mb-6">
+                        Module: {courseProgress?.currentModuleName || 'Start Learning'}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 md:gap-8">
+                        <div className="flex-1 h-2 md:h-3.5 bg-slate-50 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs md:text-lg font-black text-slate-500">
+                          {percentage}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => navigate(`/courses/${course.id || course._id}`)}
+                      className="w-full sm:w-auto px-8 md:px-10 py-3 md:py-4 bg-slate-50 text-slate-700 font-black rounded-xl md:rounded-2xl hover:bg-indigo-600 hover:text-white transition-all text-sm md:text-base shadow-sm hover:shadow-lg hover:shadow-indigo-200"
+                    >
+                      Resume
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-12 text-slate-500 font-medium bg-white rounded-[32px] border border-slate-100">
+                You haven't started any courses yet. <br/>
                 <button 
-                  onClick={() => navigate(`/courses/${course.id}`)}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-ocean-50 text-ocean-600 font-bold rounded-xl hover:bg-ocean-100 transition-colors flex items-center justify-center gap-2 shrink-0"
+                  onClick={() => navigate('/courses')} 
+                  className="text-indigo-600 mt-4 hover:underline font-bold"
                 >
-                  <Play size={16} fill="currentColor" /> Continue
+                  Browse Courses
                 </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Roadmap (Right, spans 1 col) */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-bold text-slate-800">Your Roadmap</h2>
-            <span className="px-3 py-1 bg-teal-50 text-teal-600 rounded-full text-xs font-bold">Frontend Path</span>
+        {/* Roadmap Sidebar */}
+        <div className="lg:col-span-4 bg-white rounded-[32px] md:rounded-[48px] p-8 md:p-12 border border-slate-100 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-8 md:mb-14">
+            <h2 className="text-xl md:text-3xl font-black text-slate-800">Roadmap</h2>
+            <span className="text-indigo-600 text-[10px] md:text-sm font-black uppercase tracking-[0.2em]">Path</span>
           </div>
           
-          <div className="relative pl-6 before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px before:w-0.5 before:bg-slate-100 space-y-8 flex-1">
-            {roadmapSteps.map((step, idx) => (
-              <div key={step.id} className="relative group cursor-default">
-                <div className={`absolute -left-[30px] mt-0.5 w-6 h-6 rounded-full flex items-center justify-center border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${step.color}`}>
-                  {step.status === 'Done' && <CheckCircle size={12} className="text-white" />}
-                  {step.status === 'Locked' && <Lock size={10} className="text-slate-400" />}
+          <div className="relative space-y-8 md:space-y-14 flex-1">
+            {roadmapSteps.length > 0 ? roadmapSteps.map((step, index) => {
+              let stepColor = 'bg-slate-200';
+              if (step.status === 'Done') stepColor = 'bg-emerald-500';
+              if (step.status === 'Active') stepColor = 'bg-indigo-600';
+
+              return (
+                <div key={step.id} className="relative flex items-start gap-4 md:gap-8">
+                  {index !== roadmapSteps.length - 1 && (
+                    <div className={`absolute left-[9px] md:left-[13px] top-8 md:top-10 bottom-[-32px] md:bottom-[-40px] w-[2px] md:w-[4px] ${step.status === 'Done' ? 'bg-emerald-200' : 'bg-slate-100'}`}></div>
+                  )}
+                  
+                  <div className={`relative z-10 w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center border-[3px] md:border-4 border-white shadow-sm transition-colors ${stepColor}`}>
+                    {step.status === 'Locked' && <Lock className="w-2.5 h-2.5 md:w-3 md:h-3 text-slate-400" />}
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <h3 className={`font-black text-sm md:text-xl transition-colors ${step.status === 'Locked' ? 'text-slate-300' : 'text-slate-800'}`}>
+                      Step {step.id}: {step.title}
+                    </h3>
+                    <p className={`text-[10px] md:text-sm font-black uppercase tracking-widest ${step.status === 'Active' ? 'text-indigo-600' : step.status === 'Done' ? 'text-emerald-500' : 'text-slate-400'}`}>
+                      [{step.status}]
+                    </p>
+                  </div>
                 </div>
-                
-                <h3 className={`font-bold text-base ${step.status === 'Locked' ? 'text-slate-400' : 'text-slate-800'}`}>
-                  {step.title}
-                </h3>
-                <p className={`text-xs font-medium mt-1 ${
-                  step.status === 'Done' ? 'text-ocean-600' : 
-                  step.status === 'Active' ? 'text-teal-600' : 'text-slate-400'
-                }`}>
-                  {step.status}
-                </p>
-              </div>
-            ))}
+              );
+            }) : (
+              <p className="text-slate-400 text-sm italic">Memuat roadmap...</p>
+            )}
           </div>
 
           <button 
             onClick={() => navigate('/roadmap')}
-            className="w-full mt-8 py-3 bg-slate-50 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors shadow-sm"
+            className="mt-10 md:mt-14 w-full py-4 md:py-5 bg-indigo-50 text-indigo-700 font-black rounded-2xl md:rounded-3xl hover:bg-indigo-100 transition-colors text-xs md:text-base uppercase tracking-widest"
           >
-            View Full Roadmap
+            Full Roadmap
           </button>
         </div>
 

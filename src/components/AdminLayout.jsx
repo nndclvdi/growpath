@@ -1,109 +1,222 @@
 import React from 'react';
 import { Outlet, Navigate, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Map, Briefcase, BookOpen, ClipboardCheck, BarChart, Settings, Network, Route } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
+
+import {
+  LayoutDashboard,
+  Users,
+  ClipboardCheck,
+  BarChart,
+  Settings,
+  Network,
+  Route,
+  Search,
+  Bell,
+  ChevronDown
+} from 'lucide-react';
 
 export default function AdminLayout() {
-  const { user, logout } = useAppContext();
+  // =========================
+  // ADMIN AUTH (SESSION MODE)
+  // =========================
+  // Mengambil data admin dari localStorage sebagai indikator login di sisi Client
+  const adminDataString = localStorage.getItem('adminData');
+  const user = adminDataString ? JSON.parse(adminDataString) : null;
 
-  // Route protection
-  if (!user || (user.role !== 'Admin' && user.role !== 'SuperAdmin')) {
-    return <Navigate to="/login" replace />;
+  // =========================
+  // LOGOUT ADMIN
+  // =========================
+  const logout = () => {
+    // Hapus data penanda login di sisi client
+    localStorage.removeItem('adminData');
+    
+    // Hapus token lama jika masih tersisa di browser dari versi sebelumnya
+    localStorage.removeItem('adminToken'); 
+
+    // Redirect ke login (Server akan menghapus session saat user memuat halaman login)
+    window.location.href = '/login-admin';
+  };
+
+  // =========================
+  // ROUTE PROTECTION
+  // =========================
+  // Jika tidak ada data user, atau role bukan admin/superadmin, lempar balik ke login
+  if (!user || !user.role) {
+    return <Navigate to="/login-admin" replace />;
   }
 
-  // Define nav items, filtering out "User Insight" if not SuperAdmin
+  const roleClean = user.role.toLowerCase();
+  if (roleClean !== 'admin' && roleClean !== 'superadmin') {
+    return <Navigate to="/login-admin" replace />;
+  }
+
+  // =========================
+  // NAVIGATION
+  // =========================
   const allNavItems = [
-    { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'User Insights', path: '/admin/users', icon: Users, requireSuper: true },
-    { name: 'Talent Mapping', path: '/admin/talent-mapping', icon: Network }, 
-    { name: 'Career Paths', path: '/admin/courses', icon: Route },
-    { name: 'Assessments', path: '/admin/assessments', icon: ClipboardCheck },
-    { name: 'Reports', path: '/admin/reports', icon: BarChart },
-    { name: 'Settings', path: '/admin/settings', icon: Settings },
+    {
+      name: 'Dashboard',
+      path: '/admin/dashboard',
+      icon: LayoutDashboard
+    },
+    {
+      name: 'User Insights',
+      path: '/admin/users',
+      icon: Users,
+    },
+    {
+      name: 'Talent Mapping',
+      path: '/admin/talent-mapping',
+      icon: Network
+    },
+    {
+      name: 'Career Paths',
+      path: '/admin/courses',
+      icon: Route
+    },
+    {
+      name: 'Assessments',
+      path: '/admin/assessments',
+      icon: ClipboardCheck
+    },
+    {
+      name: 'Reports',
+      path: '/admin/reports',
+      icon: BarChart
+    },
+    {
+      name: 'Settings',
+      path: '/admin/settings',
+      icon: Settings
+    },
   ];
 
-  const navItems = allNavItems.filter(item => !item.requireSuper || user.role === 'SuperAdmin');
+  // Filter items berdasarkan role jika diperlukan (misal: fitur khusus SuperAdmin)
+  const navItems = allNavItems.filter(
+    item => !item.requireSuper || roleClean === 'superadmin'
+  );
 
   return (
-    <div className="flex min-h-screen bg-[#0F172A] font-sans text-slate-300">
-      
-      {/* Admin Sidebar - Dark Theme */}
-      <aside className="w-64 bg-[#111827] text-slate-300 flex flex-col h-screen sticky top-0 border-r border-slate-800">
-        <div className="p-6 pb-2">
-          <h1 className="text-xl font-bold text-white flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/20">
-              <Network size={18} />
+    <div className="flex min-h-screen bg-[#071226] text-slate-300 overflow-hidden">
+
+      {/* =========================
+          SIDEBAR
+      ========================= */}
+      <aside className="w-[250px] bg-[#0F1B33] border-r border-[#1E2A45] flex flex-col h-screen sticky top-0">
+
+        {/* LOGO */}
+        <div className="h-20 px-6 flex items-center border-b border-[#1E2A45]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Network size={18} className="text-white" />
             </div>
-            GrowPath
-          </h1>
+            <h1 className="text-xl font-bold text-white">
+              GrowPath
+            </h1>
+          </div>
         </div>
-        
-        <nav className="flex-1 px-4 space-y-1 mt-6">
-          <p className="px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Menu</p>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  isActive 
-                    ? 'bg-[#1E293B] text-blue-400 font-medium border border-slate-700/50 shadow-sm' 
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                }`
-              }
-            >
-              <item.icon size={20} className="shrink-0" />
-              <span className="text-sm">{item.name}</span>
-            </NavLink>
-          ))}
+
+        {/* MENU */}
+        <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 px-3">
+            Menu
+          </p>
+          <div className="space-y-2">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                className={({ isActive }) =>
+                  `group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    isActive
+                      ? 'bg-blue-600/20 text-blue-400 border border-blue-500/20'
+                      : 'text-slate-400 hover:bg-[#162544] hover:text-white'
+                  }`
+                }
+              >
+                <item.icon
+                  size={18}
+                  className="shrink-0"
+                />
+                <span className="text-sm font-medium">
+                  {item.name}
+                </span>
+              </NavLink>
+            ))}
+          </div>
         </nav>
 
-        <div className="p-4 mt-auto">
-          <button 
+        {/* PROFILE FOOTER */}
+        <div className="p-4 border-t border-[#1E2A45]">
+          <button
             onClick={logout}
-            className="w-full bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 transition-colors rounded-xl p-3 flex items-center gap-3 text-left shadow-sm"
+            className="w-full bg-[#162544] hover:bg-[#1B2E54] transition-all rounded-2xl p-3 flex items-center gap-3"
           >
-            <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold shrink-0">
-              {user.name.charAt(0)}
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shrink-0">
+              {user.name?.charAt(0).toUpperCase() || 'A'}
             </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-semibold text-white truncate">{user.name}</p>
-              <p className="text-[11px] text-slate-400 truncate">{user.email || 'admin@growpath.ai'}</p>
+            <div className="flex-1 text-left overflow-hidden">
+              <p className="text-sm font-semibold text-white truncate">
+                {user.name || 'Admin'}
+              </p>
+              <p className="text-[11px] text-slate-400 truncate">
+                {user.email || 'admin@growpath.ai'}
+              </p>
             </div>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* =========================
+          MAIN CONTENT AREA
+      ========================= */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        
-        {/* Admin Header */}
-        <header className="h-20 bg-[#0F172A] border-b border-slate-800 flex items-center justify-between px-8">
-          <div className="flex items-center gap-4">
-            <h2 className="font-bold text-xl text-white">Admin Panel</h2>
-            {user.role === 'Admin' && (
-              <span className="px-3 py-1 bg-ocean-500/20 text-ocean-400 text-xs font-bold rounded-full border border-ocean-500/30 uppercase tracking-wide">
-                {user.interest}
-              </span>
-            )}
-            {user.role === 'SuperAdmin' && (
-              <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-xs font-bold rounded-full border border-purple-500/30 uppercase tracking-wide">
-                Super Admin
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-white">{user.name}</p>
-              <p className="text-xs text-slate-400">{user.role}</p>
+
+        {/* HEADER */}
+        <header className="h-20 bg-[#091529] border-b border-[#1E2A45] flex items-center justify-between px-8">
+          <div className="flex items-center gap-6">
+            <h2 className="text-lg font-bold text-white">
+              Admin Panel
+            </h2>
+            <div className="hidden md:flex items-center bg-[#0F1B33] border border-[#1E2A45] rounded-full px-4 h-11 w-[320px]">
+              <Search
+                size={16}
+                className="text-slate-500"
+              />
+              <input
+                type="text"
+                placeholder="Cari user, skill, atau laporan..."
+                className="bg-transparent outline-none border-none text-sm text-white placeholder:text-slate-500 ml-3 w-full"
+              />
             </div>
-            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-ocean-500 to-teal-500 text-white flex items-center justify-center font-bold shadow-md">
-              {user.name.charAt(0)}
+          </div>
+
+          <div className="flex items-center gap-5">
+            {/* NOTIFICATIONS */}
+            <button className="relative text-slate-400 hover:text-white transition-colors">
+              <Bell size={18} />
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-blue-500"></span>
+            </button>
+            
+            {/* AVATAR DENGAN FALLBACK */}
+            <div className="flex items-center gap-3 cursor-pointer">
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-700">
+                <img
+                  src={`https://ui-avatars.com/api/?name=${user.name || 'Admin'}&background=2563eb&color=fff`}
+                  alt={user.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <ChevronDown
+                size={16}
+                className="text-slate-500"
+              />
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        {/* CONTENT VIEWPORT */}
+        <main className="flex-1 overflow-y-auto bg-[#071226] p-6">
+          {/* Outlet ini sangat penting untuk menampilkan AdminDashboard atau UserInsights */}
           <Outlet />
         </main>
       </div>

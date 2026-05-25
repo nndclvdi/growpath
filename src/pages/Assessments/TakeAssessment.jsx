@@ -5,12 +5,12 @@ import { useAppContext } from '../../context/AppContext';
 export default function TakeAssessment() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const { saveAssessment, availableAssessments } = useAppContext();
-  
-  const assessmentData = availableAssessments.find(a => a.id === id);
-  
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState({});
+
+  const assessmentData = availableAssessments.find(
+    (a) => String(a.id) === String(id)
+  );
 
   const questions = [
     {
@@ -35,95 +35,152 @@ export default function TakeAssessment() {
     }
   ];
 
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState({});
+
+  // =========================
+  // FIX STATE UPDATE (IMPORTANT)
+  // =========================
   const handleSelectOption = (optionIndex) => {
-    setAnswers({ ...answers, [currentQuestion]: optionIndex });
+    setAnswers((prev) => ({
+      ...prev,
+      [currentQuestion]: optionIndex
+    }));
   };
 
-  const handleNext = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      // Mock detailed assessment data
-      const score = Math.floor(Math.random() * 40) + 60; // Mock score between 60-100
-      
-      const breakdown = [
-        { topic: 'React Basics', score: Math.floor(Math.random() * 20) + 80 },
-        { topic: 'State Management', score: Math.floor(Math.random() * 30) + 60 },
-        { topic: 'Hooks', score: Math.floor(Math.random() * 20) + 75 },
-        { topic: 'Routing', score: 100 }
-      ];
+  const selectedAnswer = answers[currentQuestion];
 
-      const assessmentResult = {
-        assessmentId: id,
-        title: assessmentData?.title || 'Assessment',
-        score,
-        date: new Date().toISOString(),
-        breakdown,
-        recommendation: "Based on your score, you should focus on State Management."
+  // =========================
+  // NEXT / SUBMIT HANDLER
+  // =========================
+  const handleNext = async () => {
+    const isLast = currentQuestion === questions.length - 1;
+
+    if (!isLast) {
+      setCurrentQuestion((prev) => prev + 1);
+      return;
+    }
+
+    // =========================
+    // MOCK RESULT
+    // =========================
+    const score = Math.floor(Math.random() * 40) + 60;
+
+    const breakdown = [
+      { topic: 'React Basics', score: 85 },
+      { topic: 'State Management', score: 70 },
+      { topic: 'Hooks', score: 90 },
+      { topic: 'Routing', score: 95 }
+    ];
+
+    const assessmentResult = {
+      assessmentId: id,
+      title: assessmentData?.title || 'Assessment',
+      score,
+      date: new Date().toISOString(),
+      breakdown,
+      recommendation:
+        score >= 80
+          ? "Great job! Keep improving."
+          : "Focus more on fundamentals."
+    };
+
+    try {
+      const response = await fetch('/api/assessments/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          assessment_id: id,
+          score
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Submit failed');
+      }
+
+      const data = await response.json();
+
+      const finalResult = {
+        ...assessmentResult,
+        attemptId: data?.data?.id?.toString() || Date.now().toString()
       };
 
-      const attemptId = saveAssessment(assessmentResult);
-      navigate(`/assessments/result/${attemptId}`);
+      saveAssessment(finalResult);
+      navigate(`/assessments/result/${finalResult.attemptId}`);
+
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
     }
   };
 
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
   return (
-    <div className="max-w-3xl mx-auto py-8 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl font-bold text-slate-800">{assessmentData?.title || 'Skill Assessment'}</h2>
-          <span className="text-ocean-600 font-medium bg-ocean-50 px-4 py-1.5 rounded-full">
-            Question {currentQuestion + 1} of {questions.length}
+    <div className="max-w-3xl mx-auto py-8">
+      <div className="bg-white rounded-3xl p-8 shadow-sm border">
+
+        {/* HEADER */}
+        <div className="flex justify-between mb-6">
+          <h2 className="font-bold text-xl">
+            {assessmentData?.title || 'Assessment'}
+          </h2>
+
+          <span className="text-ocean-600 font-medium">
+            Q {currentQuestion + 1} / {questions.length}
           </span>
         </div>
 
-        <div className="w-full h-2 bg-slate-100 rounded-full mb-10 overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-ocean-500 to-teal-400 rounded-full transition-all duration-500"
+        {/* PROGRESS */}
+        <div className="w-full h-2 bg-slate-100 rounded-full mb-8">
+          <div
+            className="h-2 bg-ocean-500 rounded-full transition-all"
             style={{ width: `${progress}%` }}
-          ></div>
+          />
         </div>
 
-        <div className="mb-8">
-          <h3 className="text-2xl font-semibold text-slate-800 mb-6">
-            {questions[currentQuestion].question}
-          </h3>
-          
-          <div className="space-y-4">
-            {questions[currentQuestion].options.map((option, index) => (
-              <div 
+        {/* QUESTION */}
+        <h3 className="text-2xl font-semibold mb-6">
+          {questions[currentQuestion].question}
+        </h3>
+
+        {/* OPTIONS */}
+        <div className="space-y-4">
+          {questions[currentQuestion].options.map((option, index) => {
+            const isSelected = selectedAnswer === index;
+
+            return (
+              <div
                 key={index}
                 onClick={() => handleSelectOption(index)}
-                className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  answers[currentQuestion] === index 
-                    ? 'border-ocean-500 bg-ocean-50 text-ocean-700' 
-                    : 'border-slate-100 hover:border-ocean-200 hover:bg-slate-50 text-slate-600'
+                className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-ocean-500 bg-ocean-50 text-ocean-700'
+                    : 'border-slate-200 hover:border-ocean-200'
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    answers[currentQuestion] === index ? 'border-ocean-500' : 'border-slate-300'
-                  }`}>
-                    {answers[currentQuestion] === index && <div className="w-3 h-3 bg-ocean-500 rounded-full"></div>}
-                  </div>
-                  <span className="font-medium">{option}</span>
-                </div>
+                {option}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
 
-        <div className="flex justify-end pt-6 border-t border-slate-100">
-          <button 
+        {/* BUTTON */}
+        <div className="flex justify-end mt-8">
+          <button
             onClick={handleNext}
-            disabled={answers[currentQuestion] === undefined}
-            className="px-8 py-3 bg-ocean-600 text-white rounded-xl font-medium hover:bg-ocean-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-ocean-500/20"
+            disabled={selectedAnswer === undefined}
+            className="px-8 py-3 bg-ocean-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {currentQuestion === questions.length - 1 ? 'Submit Assessment' : 'Next Question'}
+            {currentQuestion === questions.length - 1
+              ? 'Submit Assessment'
+              : 'Next Question'}
           </button>
         </div>
+
       </div>
     </div>
   );

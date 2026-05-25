@@ -1,79 +1,142 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircle, Clock, Star, Users } from 'lucide-react';
+import { useAppContext } from '../../context/AppContext';
+import { PlayCircle, Clock, BookOpen, Search, Filter } from 'lucide-react';
 
 export default function CourseList() {
   const [activeTab, setActiveTab] = useState('All');
   const navigate = useNavigate();
+  
+  const { courses } = useAppContext();
+  const dbCourses = courses || [];
 
-  const courses = [
-    { id: 1, title: 'UI/UX Design Masterclass', author: 'Sarah Drasner', duration: '12h 30m', rating: 4.9, students: '12k', image: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&q=80&w=600', category: 'Design', status: 'In Progress' },
-    { id: 2, title: 'Advanced React Patterns', author: 'Kent C. Dodds', duration: '8h 15m', rating: 4.8, students: '8k', image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=600', category: 'Frontend', status: 'Completed' },
-    { id: 3, title: 'Node.js Backend Architecture', author: 'Ryan Dahl', duration: '15h 00m', rating: 4.7, students: '5k', image: 'https://images.unsplash.com/photo-1555099962-4199c345e5dd?auto=format&fit=crop&q=80&w=600', category: 'Backend', status: 'Not Started' },
-  ];
+  // ========================================================
+  // [FIXED] LOGIKA ANTI-DUPLIKASI YANG BENAR UNTUK POSTGRESQL
+  // ========================================================
+  const uniqueCourses = dbCourses.filter(
+    (item, index, self) =>
+      index === self.findIndex((t) => {
+        // Hanya membandingkan ID jika ID-nya memang benar-benar ada nilainya
+        const isSameId = item.id && t.id === item.id;
+        const isSameMongoId = item._id && t._id === item._id;
+        return isSameId || isSameMongoId;
+      })
+  );
 
-  const filteredCourses = activeTab === 'All' ? courses : courses.filter(c => c.status === activeTab);
+  // Logic filter kategori super aman
+  const filteredCourses = uniqueCourses.filter(course => {
+    if (activeTab === 'All') return true;
+    
+    const targetTab = activeTab.toLowerCase().trim();
+    const courseCategory = (course.category || '').toLowerCase().trim();
+    const courseStatus = (course.status || '').toLowerCase().trim();
+    
+    return courseCategory === targetTab || courseStatus === targetTab;
+  });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 p-4">
+      {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Course Library</h1>
-          <p className="text-slate-500 mt-1">Explore our collection of premium courses.</p>
-        </div>
+        <h1 className="text-3xl font-bold text-slate-900">Course Library</h1>
         
-        <div className="flex bg-white rounded-xl p-1 shadow-sm border border-slate-100">
-          {['All', 'In Progress', 'Completed'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab ? 'bg-ocean-50 text-ocean-600' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm">
+            <Search size={18} />
+            <span>[ Search Course ]</span>
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm">
+            <Filter size={18} />
+            <span>[ Filter ]</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredCourses.map(course => (
-          <div key={course.id} className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col">
-            <div className="relative h-48 overflow-hidden">
-              <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-              <div className="absolute top-4 left-4">
-                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-ocean-700 text-xs font-bold rounded-full shadow-sm">
-                  {course.category}
-                </span>
-              </div>
-              <button 
-                onClick={() => navigate(`/courses/${course.id}`)}
-                className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <PlayCircle size={48} className="text-white" />
-              </button>
-            </div>
-            
-            <div className="p-6 flex-1 flex flex-col">
-              <h3 className="text-xl font-bold text-slate-800 mb-2 line-clamp-2">{course.title}</h3>
-              <p className="text-sm text-slate-500 mb-4">by {course.author}</p>
-              
-              <div className="flex items-center gap-4 text-xs font-medium text-slate-500 mb-6 mt-auto">
-                <span className="flex items-center gap-1"><Clock size={14} /> {course.duration}</span>
-                <span className="flex items-center gap-1 text-yellow-500"><Star size={14} fill="currentColor" /> {course.rating}</span>
-                <span className="flex items-center gap-1"><Users size={14} /> {course.students}</span>
-              </div>
-              
-              <button 
-                onClick={() => navigate(`/courses/${course.id}`)}
-                className="w-full py-2.5 bg-slate-50 text-ocean-600 rounded-xl font-semibold hover:bg-ocean-50 transition-colors"
-              >
-                View Details
-              </button>
-            </div>
-          </div>
+      {/* FILTER TABS */}
+      <div className="flex gap-4">
+        {['All', 'Design', 'Frontend', 'Backend'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
+              activeTab === tab 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                : 'bg-white text-slate-400 border border-slate-100 hover:border-indigo-200'
+            }`}
+          >
+            {tab}
+          </button>
         ))}
+      </div>
+
+      {/* COURSE GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        {filteredCourses.map(course => {
+          const courseId = course.id || course._id;
+          const fallbackImage = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600';
+          const courseImage = course.image && course.image !== '[null]' ? course.image : fallbackImage;
+
+          return (
+            <div key={courseId} className="bg-white rounded-[2rem] overflow-hidden border border-slate-50 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col">
+              
+              {/* THUMBNAIL AREA */}
+              <div className="relative h-56 bg-slate-100 flex items-center justify-center overflow-hidden">
+                <img 
+                  src={courseImage} 
+                  alt={course.title} 
+                  className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700" 
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/10">
+                  <span className="text-slate-500 font-medium text-sm">[ Video Thumbnail ]</span>
+                </div>
+                <button 
+                  onClick={() => navigate(`/courses/${courseId}`)}
+                  className="absolute inset-0 bg-indigo-900/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <PlayCircle size={60} className="text-white drop-shadow-lg" />
+                </button>
+              </div>
+              
+              {/* CONTENT AREA */}
+              <div className="p-8 flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full">
+                    {course.category || 'General'}
+                  </span>
+                </div>
+
+                <h3 className="text-xl font-extrabold text-slate-800 mb-2 line-clamp-1">{course.title}</h3>
+                
+                <p className="text-slate-400 text-sm font-medium mb-6 line-clamp-2">
+                  {course.description && course.description !== '[null]' ? course.description : 'No description available for this course.'}
+                </p>
+                
+                <div className="flex items-center gap-4 text-sm font-bold text-slate-400 mb-8 mt-auto">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen size={18} /> {course.lessons || 0} Lessons
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={18} /> {course.duration || 'Self-paced'}
+                  </span>
+                </div>
+                
+                <button 
+                  onClick={() => navigate(`/courses/${courseId}`)}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all transform active:scale-95"
+                >
+                  [ Enroll ]
+                </button>
+              </div>
+
+            </div>
+          );
+        })}
+
+        {filteredCourses.length === 0 && (
+          <div className="col-span-full text-center py-16 text-slate-500">
+            <p className="text-lg font-medium">No courses available in this category.</p>
+          </div>
+        )}
       </div>
     </div>
   );

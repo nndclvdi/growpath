@@ -1,55 +1,79 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Map, GraduationCap, BarChart, User, LogOut } from 'lucide-react';
+import { 
+  Home, 
+  FileText, 
+  Map, 
+  BookOpen, 
+  TrendingUp, 
+  User, 
+  LogOut 
+} from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 export default function Sidebar() {
   const { logout } = useAppContext();
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Assessments', path: '/assessments', icon: BookOpen },
+    { name: 'Dashboard', path: '/dashboard', icon: Home },
+    { name: 'Assessment', path: '/assessments', icon: FileText },
     { name: 'Roadmap', path: '/roadmap', icon: Map },
-    { name: 'Courses', path: '/courses', icon: GraduationCap },
-    { name: 'Progress', path: '/progress', icon: BarChart },
-    { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Course', path: '/courses', icon: BookOpen },
+    { name: 'Progress', path: '/progress', icon: TrendingUp },
+    { name: 'Profil', path: '/profile', icon: User },
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-ocean-700 flex items-center gap-2">
-          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-ocean-500 to-teal-500 text-white flex items-center justify-center text-sm">G</span>
-          GrowPath
-        </h1>
+    <aside className="w-64 bg-white border-r border-slate-100 flex flex-col h-screen sticky top-0 font-sans">
+      
+      {/* Header Logo */}
+      <div className="p-8 pb-10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#5D5FEF] text-white flex items-center justify-center font-bold text-xs shadow-lg shadow-indigo-100">
+            GP
+          </div>
+          <span className="text-lg font-bold text-slate-800 tracking-tight">GrowPath</span>
+        </div>
       </div>
       
-      <nav className="flex-1 px-4 space-y-1 mt-4">
+      {/* Navigation Items */}
+      <nav className="flex-1 px-4 space-y-2">
         {navItems.map((item) => (
           <NavLink
             key={item.name}
             to={item.path}
+            // Di sini kita menangkap isActive untuk class
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+              `flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-300 group ${
                 isActive 
-                  ? 'bg-ocean-50 text-ocean-700 font-medium' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-ocean-600'
+                  ? 'bg-[#5D5FEF] text-white shadow-xl shadow-indigo-200 font-medium' 
+                  : 'text-slate-400 hover:text-[#5D5FEF] hover:bg-indigo-50'
               }`
             }
           >
-            <item.icon size={20} className="shrink-0" />
-            {item.name}
+            {/* PERBAIKAN: Gunakan fungsi callback di dalam children NavLink untuk mendapatkan isActive */}
+            {({ isActive }) => (
+              <>
+                <item.icon 
+                  size={20} 
+                  className="shrink-0" 
+                  strokeWidth={isActive ? 2.5 : 1.5} 
+                />
+                <span className="text-[15px]">{item.name}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-200">
+      {/* Logout Section */}
+      <div className="p-6 border-t border-slate-50">
         <button 
           onClick={logout}
-          className="flex items-center gap-3 px-4 py-3 w-full text-left rounded-xl text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="flex items-center gap-4 px-5 py-4 w-full text-left rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all group"
         >
-          <LogOut size={20} />
-          <span>Logout</span>
+          <LogOut size={20} strokeWidth={1.5} className="group-hover:translate-x-1 transition-transform" />
+          <span className="text-[15px] font-medium">Logout</span>
         </button>
       </div>
     </aside>
