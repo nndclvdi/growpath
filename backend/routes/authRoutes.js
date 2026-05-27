@@ -3,9 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const db = require('../config/db'); 
 
-// ==========================================
 // 1. ENDPOINT REGISTRASI (/register)
-// ==========================================
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -34,9 +32,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// ==========================================
 // 2. ENDPOINT KHUSUS USER BIASA (/login-user)
-// ==========================================
 router.post('/login-user', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -86,9 +82,8 @@ router.post('/login-user', async (req, res) => {
   }
 });
 
-// ==========================================
+
 // 3. ENDPOINT KHUSUS ADMIN (/login-admin)
-// ==========================================
 router.post('/login-admin', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -136,9 +131,8 @@ router.post('/login-admin', async (req, res) => {
   }
 });
 
-// ==========================================
+
 // 4. ENDPOINT LOGOUT (ANTI-BUG)
-// ==========================================
 router.post('/logout', (req, res) => {
   const sessionID = req.sessionID;
   req.session.destroy((err) => {
@@ -155,15 +149,19 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// ==========================================
+
 // 5. ENDPOINT CEK STATUS AUTH (DIPERKUAT)
-// ==========================================
 router.get('/check-auth', async (req, res) => {
   try {
     const activeId = req.session.userId || req.session.adminId;
 
     if (!activeId) {
-      return res.status(401).json({ authenticated: false, message: 'Tidak ada sesi aktif.' });
+      // ✅ SUDAH DIUBAH KE 200 AGAR TIDAK ERROR MERAH DI BROWSER
+      return res.status(200).json({ 
+        authenticated: false, 
+        user: null, 
+        message: 'Tidak ada sesi aktif.' 
+      });
     }
 
     // Ambil data fresh dari database menggunakan ID yang ada di session
@@ -176,11 +174,16 @@ router.get('/check-auth', async (req, res) => {
     if (result.rows.length === 0) {
       req.session.destroy();
       res.clearCookie('growpath_sid', { path: '/' });
-      return res.status(401).json({ authenticated: false, message: 'Akun tidak ditemukan.' });
+      // ✅ SUDAH DIUBAH KE 200 JUGA
+      return res.status(200).json({ 
+        authenticated: false, 
+        user: null, 
+        message: 'Akun tidak ditemukan.' 
+      });
     }
 
     // Kembalikan objek "user" dengan format yang diharapkan oleh frontend
-    res.json({ 
+    res.status(200).json({ 
       authenticated: true, 
       user: result.rows[0] 
     });
