@@ -1,9 +1,8 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
 
-// ==========================================
+
 // 1. REGISTER USER
-// ==========================================
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -28,21 +27,23 @@ exports.register = async (req, res) => {
       [name, email, hashedPassword]
     );
 
-    res.status(201).json({ message: 'Registrasi berhasil', user: result.rows[0] });
+    return res.status(201).json({ message: 'Registrasi berhasil', user: result.rows[0] });
   } catch (error) {
     console.error("Register Error:", error);
-    res.status(500).json({ message: 'Server error: ' + error.message });
+    return res.status(500).json({ message: 'Server error: ' + error.message });
   }
 };
 
-// ==========================================
-// 2. LOGIN USER BIASA (Perbaikan Bug Session)
-// ==========================================
+// 2. LOGIN USER BIASA
 exports.login = async (req, res) => {
   try {
+    // Sabuk pengaman: pastikan middleware session berjalan di server.js/app.js
+    if (!req.session) {
+      return res.status(500).json({ message: 'Konfigurasi session server bermasalah.' });
+    }
+
     const { email, password } = req.body;
     
-    // Cari user biasa (bukan admin)
     const result = await db.query(
       "SELECT * FROM users WHERE email = $1 AND role = 'user'",
       [email]
@@ -56,11 +57,9 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (isMatch) {
-      // 1. Simpan ke session
       req.session.userId = user.id;
       req.session.role = user.role;
 
-      // 2. PAKSA SIMPAN (Sangat Penting untuk fix 401)
       req.session.save((err) => {
         if (err) {
           console.error("Session Save Error:", err);
@@ -68,25 +67,28 @@ exports.login = async (req, res) => {
         }
         
         console.log(`👨‍🎓 [USER LOGIN SUKSES] Session ID: ${req.sessionID} | Email: ${user.email}`);
-        res.json({
+        return res.json({
           message: 'Login Berhasil',
           user: { id: user.id, name: user.name, role: user.role }
         });
       });
     } else {
-      res.status(401).json({ message: 'Password salah.' });
+      return res.status(401).json({ message: 'Password salah.' });
     }
   } catch (error) {
     console.error("Login Error:", error);
-    res.status(500).json({ message: 'Server error: ' + error.message });
+    return res.status(500).json({ message: 'Server error: ' + error.message });
   }
 };
 
-// ==========================================
-// 3. LOGIN ADMIN (Sudah Aman)
-// ==========================================
+
+// 3. LOGIN ADMIN
 exports.loginAdmin = async (req, res) => {
   try {
+    if (!req.session) {
+      return res.status(500).json({ message: 'Konfigurasi session server bermasalah.' });
+    }
+
     const { email, password } = req.body;
     
     const result = await db.query(
@@ -102,11 +104,9 @@ exports.loginAdmin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, admin.password);
 
     if (isMatch) {
-      // 1. Simpan ke session
       req.session.adminId = admin.id;
       req.session.adminRole = admin.role;
 
-      // 2. PAKSA SIMPAN
       req.session.save((err) => {
         if (err) {
           console.error("Session Save Error:", err);
@@ -114,59 +114,76 @@ exports.loginAdmin = async (req, res) => {
         }
         
         console.log(`🛡️ [ADMIN LOGIN SUKSES] Session ID: ${req.sessionID} | Email: ${admin.email}`);
-        res.json({
+        return res.json({
           message: 'Login Berhasil',
           admin: { id: admin.id, name: admin.name, role: admin.role }
         });
       });
     } else {
-      res.status(401).json({ message: 'Password salah.' });
+      return res.status(401).json({ message: 'Password salah.' });
     }
   } catch (error) {
     console.error("Login Admin Error:", error);
-    res.status(500).json({ message: 'Server error: ' + error.message });
+    return res.status(500).json({ message: 'Server error: ' + error.message });
   }
 };
 
-// ==========================================
-// 4. CHECK AUTH (PENYEBAB ERROR 401 SEBELUMNYA)
-// ==========================================
+
+// 4. CHECK AUTH 
 exports.checkAuth = async (req, res) => {
   try {
+    // Sabuk pengaman: jika session tidak ada sama sekali
+    if (!req.session) {
+      return res.status(200).json({ 
+        isAuthenticated: false,
+        user: null,
+        message: 'Tidak ada sesi aktif.' 
+      });
+    }
+
     // Cek apakah ada userId ATAU adminId di dalam cookie session
     if (req.session.userId) {
       const result = await db.query("SELECT id, name, email, role FROM users WHERE id = $1", [req.session.userId]);
       if(result.rows.length > 0) {
-         return res.json({ user: result.rows[0] });
+         return res.json({ isAuthenticated: true, user: result.rows[0] });
       }
     } 
     
     if (req.session.adminId) {
       const result = await db.query("SELECT id, name, email, role FROM users WHERE id = $1", [req.session.adminId]);
       if(result.rows.length > 0) {
-         return res.json({ user: result.rows[0] });
+         return res.json({ isAuthenticated: true, user: result.rows[0] });
       }
     }
 
     // Jika masuk ke sini, artinya tidak ada cookie atau cookie kedaluwarsa
-    res.status(401).json({ message: 'Sesi tidak ditemukan atau kedaluwarsa.' });
+    return res.status(200).json({ 
+      isAuthenticated: false,
+      user: null,
+      message: 'Sesi tidak ditemukan atau kedaluwarsa.' 
+    });
   } catch (error) {
     console.error("Check Auth Error:", error);
-    res.status(500).json({ message: 'Server error saat memeriksa sesi.' });
+    return res.status(500).json({ message: 'Server error saat memeriksa sesi.' });
   }
 };
 
-// ==========================================
 // 5. LOGOUT
-// ==========================================
 exports.logout = (req, res) => {
+  // Hapus cookie secara paksa terlebih dahulu untuk keamanan
+  res.clearCookie('growpath_sid', { path: '/' }); 
+
+  // Jika req.session tidak ada, langsung kembalikan sukses (jangan panggil destroy agar tidak crash)
+  if (!req.session) {
+    return res.json({ message: 'Logout berhasil (sesi sudah kosong)' });
+  }
+
   req.session.destroy((err) => {
     if (err) {
       console.error("Logout Error:", err);
-      return res.status(500).json({ message: 'Gagal logout' });
+      // Meskipun gagal destroy di server, cookie di browser sudah kita hapus di atas
+      return res.status(500).json({ message: 'Gagal membersihkan sesi di server' });
     }
-    // Tambahkan opsi path '/' agar cookie benar-benar terhapus di seluruh rute
-    res.clearCookie('growpath_sid', { path: '/' }); 
-    res.json({ message: 'Logout berhasil' });
+    return res.json({ message: 'Logout berhasil' });
   });
 };
