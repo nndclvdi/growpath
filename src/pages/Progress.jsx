@@ -126,7 +126,6 @@ export default function Progress() {
     </div>
   );
 }
-<<<<<<< HEAD
 
 // Komponen Pembantu
 function StatCard({ label, value, icon: Icon, color, bg }) {
@@ -142,5 +141,3 @@ function StatCard({ label, value, icon: Icon, color, bg }) {
     </div>
   );
 }
-=======
->>>>>>> 897df25ea1dfa544a23ae9de78c005ceb797c597
