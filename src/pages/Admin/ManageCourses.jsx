@@ -191,7 +191,6 @@ export default function ManageCourses() {
         </div>
       )}
 
-<<<<<<< HEAD
       {/* TABLE */}
       <div className="bg-[#0B1120] rounded-xl border border-slate-800 shadow-sm overflow-x-auto">
         <table className="w-full text-left text-sm min-w-max">
@@ -228,51 +227,11 @@ export default function ManageCourses() {
             {displayCourses.length === 0 && (
               <tr>
                 <td colSpan="3" className="text-center py-12 text-slate-500">
-=======
-      <div className="bg-[#0B1120] rounded-xl border border-slate-800 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[#0F172A] border-b border-slate-800">
-            <tr>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs">Course Name</th>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs">Category</th>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs">Lessons</th>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {displayCourses.map(course => (
-              <tr key={course.id} className="hover:bg-[#0F172A] transition-colors">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-white">{course.title}</div>
-                  <div className="text-slate-500 text-xs mt-1">by {course.author}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-medium border border-slate-700">{course.category}</span>
-                </td>
-                <td className="px-6 py-4 text-slate-400">{course.lessons?.length || 0} lessons</td>
-                <td className="px-6 py-4 flex gap-2">
-                  <button className="p-2 text-slate-400 hover:text-ocean-400 hover:bg-ocean-500/10 rounded-lg transition-colors" title="Edit">
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={() => deleteCourse(course.id)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
-                    <Trash2 size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {displayCourses.length === 0 && (
-              <tr>
-                <td colSpan="4" className="text-center py-12 text-slate-500">
->>>>>>> 897df25ea1dfa544a23ae9de78c005ceb797c597
                   <div className="flex flex-col items-center justify-center">
                     <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
                       <Trash2 size={24} className="text-slate-600" />
                     </div>
-<<<<<<< HEAD
                     <p>No courses available.</p>
-=======
-                    <p>No courses available in this category.</p>
->>>>>>> 897df25ea1dfa544a23ae9de78c005ceb797c597
                   </div>
                 </td>
               </tr>
@@ -282,8 +241,4 @@ export default function ManageCourses() {
       </div>
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 897df25ea1dfa544a23ae9de78c005ceb797c597
