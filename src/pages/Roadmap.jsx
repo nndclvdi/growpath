@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { CheckCircle, Circle, Lock, Zap, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
+import API from '../api/axios'; // 1. IMPORT AXIOS PUSAT DI SINI
 
 export default function Roadmap() {
   const { user, progress, toggleRoadmapItem } = useAppContext();
@@ -12,10 +13,10 @@ export default function Roadmap() {
   useEffect(() => {
     const fetchRoadmaps = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/roadmaps');
-        if (!res.ok) throw new Error('Gagal mengambil data roadmap');
+        // 2. MENGGUNAKAN AXIOS GET (Otomatis ke http://localhost:5000/api/roadmaps)
+        const response = await API.get('/roadmaps');
+        const data = response.data;
         
-        const data = await res.json();
         const formatted = data.map((item, index) => ({
           id: `phase${index + 1}`,
           dbId: item.id, 
@@ -28,7 +29,7 @@ export default function Roadmap() {
         }));
         setPhases(formatted);
       } catch (error) {
-        console.error("Error Fetching Roadmaps:", error);
+        console.error("Error Fetching Roadmaps:", error.response?.data?.message || error.message);
       } finally {
         setIsLoading(false);
       }
@@ -42,18 +43,14 @@ export default function Roadmap() {
 
     if (user?.id) {
       try {
-        await fetch(`http://localhost:5000/api/roadmaps/progress`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.id,
-            phaseId: phaseId,
-            taskId: itemId
-          }),
-          credentials: 'include'
+        // 3. MENGGUNAKAN AXIOS POST (Ringkas tanpa headers & stringify)
+        await API.post('/roadmaps/progress', {
+          userId: user.id,
+          phaseId: phaseId,
+          taskId: itemId
         });
       } catch (error) {
-        console.error("Gagal sinkronisasi progress roadmap ke server", error);
+        console.error("Gagal sinkronisasi progress roadmap ke server:", error.response?.data?.message || error.message);
       }
     }
   };
@@ -62,10 +59,8 @@ export default function Roadmap() {
     return phases.map((phase, index) => {
       const checklist = progress.roadmapChecklist[phase.id] || [];
       
-      // PERBAIKAN 1: Cek apakah SEMUA item yang ada di halaman depan sudah dicentang
       const isCompleted = phase.items.length > 0 && phase.items.every(item => checklist.includes(item.id));
 
-      // PERBAIKAN 2: Batasi nilai progress maksimal 100% (karena bisa ada tambahan dari halaman detail)
       let currentProgress = Math.round((checklist.length / phase.items.length) * 100);
       if (currentProgress > 100 || isCompleted) currentProgress = 100;
 
@@ -81,7 +76,6 @@ export default function Roadmap() {
       const prev = phases[index - 1];
       const prevChecklist = progress.roadmapChecklist[prev?.id] || [];
       
-      // PERBAIKAN 3: Gunakan .every() juga untuk mengecek penyelesaian phase sebelumnya
       const prevCompleted = prev?.items?.length > 0 && prev.items.every(item => prevChecklist.includes(item.id));
 
       return {

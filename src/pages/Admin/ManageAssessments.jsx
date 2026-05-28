@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Trash2, Plus, Edit2, X } from 'lucide-react';
+import API from '../../api/axios';
 
 export default function ManageAssessments() {
   const {
@@ -11,9 +12,6 @@ export default function ManageAssessments() {
     user
   } = useAppContext();
 
-  // =========================
-  // STATE MANAGEMENT
-  // =========================
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -28,18 +26,11 @@ export default function ManageAssessments() {
     description: ''
   });
 
-  // Melakukan filter otomatis terhadap duplicate ID ganda (misal ID 13) sebelum dirender
   const displayAssessments = (availableAssessments || []).filter(
     (item, index, self) =>
       index === self.findIndex((t) => (t.id === item.id || t._id === item._id))
   );
-  
-  // Endpoint Backend
-  const API_URL = 'http://localhost:5000/api/assessments';
 
-  // =========================
-  // OPEN/CLOSE FORM
-  // =========================
   const openAddForm = () => {
     setAssessmentData({ title: '', category: defaultCategory, duration: '', description: '' });
     setIsEditing(false);
@@ -67,9 +58,6 @@ export default function ManageAssessments() {
     setAssessmentData({ title: '', category: defaultCategory, duration: '', description: '' });
   };
 
-  // =========================
-  // SAVE / UPDATE ASSESSMENT
-  // =========================
   const handleSubmit = async () => {
     if (!assessmentData.title) {
       alert('Title is required!');
@@ -78,27 +66,17 @@ export default function ManageAssessments() {
 
     try {
       setLoading(true);
+      let response;
 
-      const url = isEditing ? `${API_URL}/${editId}` : API_URL;
-      const method = isEditing ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', 
-        body: JSON.stringify(assessmentData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+      if (isEditing) {
+        response = await API.put(`/assessments/${editId}`, assessmentData);
+      } else {
+        response = await API.post('/assessments', assessmentData);
       }
 
-      const data = await response.json();
+      const data = response.data;
       
       if (isEditing) {
-        // Normalisasi payload ID agar serasi saat dicocokkan di state AppContext
         const updatedPayload = {
           ...data,
           id: data.id || data._id || editId,
@@ -113,41 +91,28 @@ export default function ManageAssessments() {
 
     } catch (error) {
       console.error(`Failed to ${isEditing ? 'update' : 'add'} assessment:`, error);
-      alert(`Failed to ${isEditing ? 'update' : 'add'} assessment. Make sure you are logged in as Admin.`);
+      alert(error.response?.data?.message || `Failed to ${isEditing ? 'update' : 'add'} assessment. Make sure you are logged in as Admin.`);
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // DELETE ASSESSMENT
-  // =========================
   const handleDelete = async (id) => {
     if (!id) return alert("Error: ID data tidak ditemukan!");
-
     if (!window.confirm("Are you sure you want to delete this assessment?")) return;
 
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
-        credentials: 'include' 
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
+      await API.delete(`/assessments/${id}`);
       deleteAssessment(id);
-
     } catch (error) {
       console.error('Delete Error:', error);
-      alert('Failed to delete assessment. Make sure you are logged in as Admin.');
+      alert(error.response?.data?.message || 'Failed to delete assessment. Make sure you are logged in as Admin.');
     }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* HEADER */}
+      
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Manage Assessments</h1>
         {!isFormOpen && (
@@ -161,7 +126,6 @@ export default function ManageAssessments() {
         )}
       </div>
 
-      {/* FORM ADD / EDIT */}
       {isFormOpen && (
         <div className="bg-[#0B1120] p-6 rounded-xl border border-slate-800 shadow-sm relative">
           <button 
@@ -245,7 +209,6 @@ export default function ManageAssessments() {
         </div>
       )}
 
-      {/* TABLE */}
       <div className="bg-[#0B1120] rounded-xl border border-slate-800 shadow-sm overflow-x-auto">
         <table className="w-full text-left text-sm min-w-max">
           <thead className="bg-[#0F172A] border-b border-slate-800">

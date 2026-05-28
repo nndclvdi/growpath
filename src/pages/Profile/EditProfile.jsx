@@ -27,7 +27,6 @@ export default function EditProfile() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
       
-      {/* Header Section */}
       <div className="flex items-center gap-4 mb-8">
         <button 
           onClick={() => navigate('/profile')}
@@ -40,17 +39,14 @@ export default function EditProfile() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Card 1: Profile Picture */}
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
           <h2 className="text-lg font-bold text-slate-800 mb-6">Profile Picture</h2>
           
           <div className="flex items-center gap-8">
             <div className="relative">
-              {/* Avatar Box (Rounded Square) */}
               <div className="w-32 h-32 rounded-[28px] bg-indigo-600 flex items-center justify-center text-white shadow-lg">
                 <User size={56} strokeWidth={1.5} />
               </div>
-              {/* Camera Icon Overlay */}
               <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full border border-slate-100 flex items-center justify-center text-slate-500 shadow-md">
                 <Camera size={18} />
               </div>
@@ -78,11 +74,9 @@ export default function EditProfile() {
           </div>
         </div>
 
-        {/* Card 2: Personal Information */}
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-6">
           <h2 className="text-lg font-bold text-slate-800 mb-2">Personal Information</h2>
 
-          {/* Full Name */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider">
               <User size={14} /> Full Name
@@ -97,7 +91,6 @@ export default function EditProfile() {
             />
           </div>
 
-          {/* Email Address */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider">
               <Mail size={14} /> Email Address
@@ -112,7 +105,6 @@ export default function EditProfile() {
             />
           </div>
 
-          {/* Location */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider">
               <MapPin size={14} /> Location
@@ -127,7 +119,6 @@ export default function EditProfile() {
             />
           </div>
 
-          {/* Bio */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider">
               <AlignLeft size={14} /> Bio
@@ -145,7 +136,6 @@ export default function EditProfile() {
             </p>
           </div>
 
-          {/* Submit Button */}
           <div className="pt-4">
             <button 
               type="submit"

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Edit2, MapPin, Mail, Calendar, User, ShieldCheck } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import API from '../../api/axios'; 
 
 export default function ProfileView() {
   const { user } = useAppContext();
@@ -22,21 +23,16 @@ export default function ProfileView() {
       if (!user?.id) return;
       
       try {
-        // Memanggil endpoint API yang sama dengan halaman Progress
-        const response = await fetch(`http://localhost:5000/api/progress/${user.id}`);
-        
-        if (!response.ok) {
-           throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
+        // Menggunakan Axios: Jauh lebih ringkas!
+        const response = await API.get(`/progress/${user.id}`);
+        const result = response.data;
         
         // Simpan hanya bagian stats saja
         if (result && result.stats) {
           setStats(result.stats);
         }
       } catch (error) {
-        console.error("Gagal mengambil data statistik profil:", error.message);
+        console.error("Gagal mengambil data statistik profil:", error.response?.data?.message || error.message);
       } finally {
         setLoading(false);
       }

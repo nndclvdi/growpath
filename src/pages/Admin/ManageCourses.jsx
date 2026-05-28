@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Trash2, Plus, Edit2, X } from 'lucide-react';
+import API from '../../api/axios';
 
 export default function ManageCourses() {
   const { courses, addCourse, deleteCourse, updateCourse, user } = useAppContext();
   
-  // =========================
-  // STATE MANAGEMENT
-  // =========================
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -20,11 +18,7 @@ export default function ManageCourses() {
   });
 
   const displayCourses = courses || [];
-  const API_URL = 'http://localhost:5000/api/courses';
 
-  // =========================
-  // OPEN/CLOSE FORM LOGIC
-  // =========================
   const openAddForm = () => {
     setCourseData({ title: '', description: '', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600' });
     setIsEditing(false);
@@ -51,9 +45,6 @@ export default function ManageCourses() {
     setCourseData({ title: '', description: '', image: '' });
   };
 
-  // =========================
-  // SAVE / UPDATE LOGIC
-  // =========================
   const handleSubmit = async () => {
     if (!courseData.title) {
       alert('Course Title is required!');
@@ -62,22 +53,18 @@ export default function ManageCourses() {
 
     try {
       setLoading(true);
-      const url = isEditing ? `${API_URL}/${editId}` : API_URL;
-      const method = isEditing ? 'PUT' : 'POST';
+      let response;
 
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(courseData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+      // Menggunakan Axios: Logika POST dan PUT jauh lebih bersih
+      if (isEditing) {
+        response = await API.put(`/courses/${editId}`, courseData);
+      } else {
+        response = await API.post('/courses', courseData);
       }
 
-      const data = await response.json();
+      const data = response.data;
 
+      // Update state lokal via Context
       if (isEditing) {
         const updatedPayload = {
           ...data,
@@ -92,33 +79,25 @@ export default function ManageCourses() {
       closeForm();
     } catch (error) {
       console.error(`Failed to save course:`, error);
-      alert('Failed to save course. Make sure you are logged in as Admin.');
+      alert(error.response?.data?.message || 'Failed to save course. Make sure you are logged in as Admin.');
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // DELETE LOGIC
-  // =========================
   const handleDelete = async (id) => {
     if (!id) return alert("Error: ID data tidak ditemukan!");
     if (!window.confirm("Are you sure you want to delete this course?")) return;
 
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+      // Menggunakan Axios DELETE
+      await API.delete(`/courses/${id}`);
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
+      // Hapus dari state lokal
       if (deleteCourse) deleteCourse(id);
     } catch (error) {
       console.error('Delete Error:', error);
-      alert('Failed to delete course.');
+      alert(error.response?.data?.message || 'Failed to delete course.');
     }
   };
 
@@ -132,7 +111,6 @@ export default function ManageCourses() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* HEADER */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Manage Career Paths & Courses</h1>
         {!isFormOpen && (
@@ -145,7 +123,6 @@ export default function ManageCourses() {
         )}
       </div>
 
-      {/* FORM COMPONENT */}
       {isFormOpen && (
         <div className="bg-[#0B1120] p-6 rounded-xl border border-slate-800 shadow-sm relative">
           <button onClick={closeForm} className="absolute top-4 right-4 text-slate-400 hover:text-white">
@@ -191,7 +168,6 @@ export default function ManageCourses() {
         </div>
       )}
 
-      {/* TABLE */}
       <div className="bg-[#0B1120] rounded-xl border border-slate-800 shadow-sm overflow-x-auto">
         <table className="w-full text-left text-sm min-w-max">
           <thead className="bg-[#0F172A] border-b border-slate-800">

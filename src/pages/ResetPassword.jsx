@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import API from '../api/axios'; // 1. IMPORT INSTANCE AXIOS
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -18,7 +19,7 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 1. Validasi awal di sisi frontend
+    // Validasi awal di sisi frontend
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -30,36 +31,22 @@ export default function ResetPassword() {
     }
 
     setIsLoading(true);
-    setError(''); // Bersihkan error sebelumnya jika ada
+    setError(''); 
 
     try {
-      // 2. Kirim data ke backend
-      // GANTI URL INI dengan endpoint API backend Anda yang sebenarnya
-      const response = await fetch('http://localhost:3000/api/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token: token,
-          newPassword: formData.password
-        })
+      // 2. GUNAKAN AXIOS: Jauh lebih rapi tanpa fetch, headers, dan JSON.stringify!
+      await API.post('/auth/reset-password', {
+        token: token,
+        newPassword: formData.password
       });
 
-      const data = await response.json();
-
-      // 3. Tangani jika backend merespon dengan error (contoh: token expired)
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to reset password. Please try again.');
-      }
-
-      // 4. Jika sukses
+      // Jika sukses (status 200 OK)
       alert('Password successfully reset!');
       navigate('/login');
 
     } catch (err) {
-      // Tampilkan pesan error ke layar
-      setError(err.message);
+      // 3. TANGKAP ERROR AXIOS: Mengambil pesan spesifik dari backend Anda
+      setError(err.response?.data?.message || 'Failed to reset password. Please try again.');
     } finally {
       setIsLoading(false);
     }

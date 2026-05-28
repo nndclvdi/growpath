@@ -6,12 +6,27 @@ require('dotenv').config();
 const app = express();
 
 // 1. PENGATURAN CORS
-// Pastikan origin sesuai dengan port Vite Anda (default 5173)
-app.use(cors({
+const corsOptions = {
   origin: 'http://localhost:5173', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true 
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+
+// Middleware manual untuk menangani Preflight Request (OPTIONS)
+// Ini adalah cara paling aman agar tidak bentrok dengan path-to-regexp
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    return res.status(200).send();
+  }
+  next();
+});
 
 // 2. MIDDLEWARE DASAR
 app.use(express.json());
@@ -21,7 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({
   name: 'growpath_sid', 
   secret: process.env.SESSION_SECRET || 'growpath-super-secret-key', 
-  resave: false, // Disarankan false agar tidak membebani server
+  resave: false, 
   saveUninitialized: false,
   cookie: {
     secure: false, // Set ke true jika sudah pakai HTTPS
@@ -31,16 +46,16 @@ app.use(session({
   }
 }));
 
-// 4. ROUTES (Semua rute terhubung di sini)
+// 4. ROUTES
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/assessments', require('./routes/assessmentRoutes'));
 app.use('/api/roadmaps', require('./routes/roadmapRoutes'));
 app.use('/api/progress', require('./routes/progressRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes')); // Integrasi Admin
+app.use('/api/admin', require('./routes/adminRoutes'));
 
-// Root route untuk cek status server
+// Root route
 app.get('/', (req, res) => {
   res.json({ 
     status: 'Running',

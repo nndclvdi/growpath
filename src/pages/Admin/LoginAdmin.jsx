@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import API from '../../api/axios'; // Sesuaikan path jika letak file berbeda
 
 export default function LoginAdmin() {
   const navigate = useNavigate();
@@ -13,9 +14,6 @@ export default function LoginAdmin() {
     password: ''
   });
 
-  // CLEANUP: Cek session lewat data profil di localStorage
-  // (Karena kita tidak bisa membaca HttpOnly Cookie via JS, 
-  // kita gunakan adminData sebagai penanda UI saja)
   useEffect(() => {
     const adminData = localStorage.getItem('adminData');
     if (adminData) {
@@ -36,51 +34,24 @@ export default function LoginAdmin() {
     setLoading(true);
 
     try {
-      // ==========================================
-      // HIT API LOGIN (MENGGUNAKAN SESSION)
-      // ==========================================
-      // PERBAIKAN: URL endpoint disesuaikan menjadi '/login' sesuai dengan authRoutes.js di Backend
-      const response = await fetch('http://localhost:5000/api/auth/login-admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData),
-        // WAJIB: Agar browser mau menerima dan menyimpan Cookie dari server
-        credentials: 'include' 
-      });
+      const response = await API.post('/auth/login-admin', formData);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login gagal, periksa kembali email/password');
-      }
-
-      // ==========================================
-      // 1. BERSIHKAN DATA LAMA
-      // ==========================================
-      // Kita hapus adminToken karena sudah tidak digunakan lagi
       localStorage.removeItem('adminToken'); 
       localStorage.removeItem('adminData');
 
-      // ==========================================
-      // 2. SIMPAN DATA PROFIL (Hanya untuk keperluan UI)
-      // ==========================================
       localStorage.setItem(
         'adminData',
         JSON.stringify(data.admin || data.user)
       );
 
-      // ==========================================
-      // 3. REDIRECT TOTAL
-      // ==========================================
       // Menggunakan window.location.href untuk memastikan 
       // cookie session benar-benar terbaca saat halaman dashboard dimuat
       window.location.href = '/admin/dashboard';
 
     } catch (err) {
-      console.error('Login Error:', err.message);
-      setError(err.message);
+      console.error('Login Error:', err);
+      setError(err.response?.data?.message || 'Login gagal, periksa kembali email/password');
     } finally {
       setLoading(false);
     }
@@ -136,7 +107,7 @@ export default function LoginAdmin() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

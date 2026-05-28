@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Clock, BookOpen, Zap, CheckCircle2 } from 'lucide-react';
-// IMPORT AppContext untuk sinkronisasi progress
 import { useAppContext } from '../context/AppContext';
+import API from '../api/axios'; // 1. IMPORT AXIOS DI SINI
 
 export default function RoadmapDetail() {
   const { id } = useParams();
@@ -18,7 +18,7 @@ export default function RoadmapDetail() {
     const fetchData = async () => {
       setLoading(true);
       
-      // DATA KONTEN (Ke depannya ini sangat disarankan untuk ditarik dari Backend juga)
+      // DATA KONTEN
       const allRoadmaps = {
         phase1: {
           phase: "PHASE 1",
@@ -79,7 +79,6 @@ export default function RoadmapDetail() {
     }
   };
 
-  // FUNGSI BARU: Untuk handle centang task di detail
   const handleToggleTask = async (itemId) => {
     const stringItemId = String(itemId);
     
@@ -89,18 +88,15 @@ export default function RoadmapDetail() {
     // Update ke Database Backend
     if (user?.id) {
       try {
-        await fetch(`http://localhost:5000/api/roadmaps/progress`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.id,
-            phaseId: id,
-            taskId: stringItemId
-          }),
-          credentials: 'include'
+        // 2. MENGGUNAKAN AXIOS: Kode jadi super ringkas!
+        await API.post('/roadmaps/progress', {
+          userId: user.id,
+          phaseId: id,
+          taskId: stringItemId
         });
       } catch (error) {
-        console.error("Gagal sinkronisasi progress roadmap:", error);
+        // Axios menangkap error otomatis
+        console.error("Gagal sinkronisasi progress roadmap:", error.response?.data?.message || error.message);
       }
     }
   };

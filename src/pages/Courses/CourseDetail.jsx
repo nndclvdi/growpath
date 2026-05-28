@@ -2,18 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Play, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import API from '../../api/axios';
 
 export default function CourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const {
-    courses,
-    markCourseCompleted, // Tetap dipertahankan untuk update UI lokal
-    progress
-  } = useAppContext();
+  const { courses, markCourseCompleted, progress } = useAppContext();
 
-  // Menyelaraskan pencarian ID agar fleksibel
   const course = courses.find(c => String(c.id) === String(id) || String(c._id) === String(id));
 
   const courseVideoIds = {
@@ -24,7 +20,7 @@ export default function CourseDetail() {
 
   const [completedLessons, setCompletedLessons] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // State untuk loading tombol
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const playerRef = useRef(null);
 
@@ -65,7 +61,6 @@ export default function CourseDetail() {
 
   const onPlayerStateChange = (event) => {
     if (event.data === 0) {
-      console.log("Video selesai ditonton!");
       handleVideoCompletion();
     }
   };
@@ -79,13 +74,9 @@ export default function CourseDetail() {
       setCompletedLessons(allLessonIds);
     }
     
-    // Otomatis tembak ke backend jika video habis
     handleFinishCourse();
   };
 
-  // ==========================================
-  // FUNGSI BARU: KIRIM DATA KE BACKEND
-  // ==========================================
   const handleFinishCourse = async () => {
     if (!course) return;
     const currentId = course.id || course._id;
@@ -93,31 +84,16 @@ export default function CourseDetail() {
     try {
       setIsSubmitting(true);
       
-      // Tembak API Backend yang sudah kita buat
-      const response = await fetch(`http://localhost:5000/api/courses/${currentId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // WAJIB ADA agar session/cookie user terbaca backend
-      });
+      await API.post(`/courses/${currentId}/complete`);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Update state lokal (React Context)
-        if (markCourseCompleted) markCourseCompleted(currentId);
-        
-        alert("🎉 Selamat! Kursus berhasil diselesaikan.");
-        
-        // Arahkan otomatis ke halaman Progress untuk melihat hasilnya!
-        navigate('/progress');
-      } else {
-        alert(`Gagal: ${data.message || 'Terjadi kesalahan'}`);
-      }
+      if (markCourseCompleted) markCourseCompleted(currentId);
+      
+      alert("🎉 Selamat! Kursus berhasil diselesaikan.");
+      navigate('/progress');
+      
     } catch (error) {
       console.error("Error completing course:", error);
-      alert("Gagal terhubung ke server.");
+      alert(`Gagal: ${error.response?.data?.message || 'Terjadi kesalahan pada server.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -150,7 +126,6 @@ export default function CourseDetail() {
   return (
     <div className="max-w-[1400px] mx-auto p-6 md:p-8 space-y-6 bg-[#F8FAFC] min-h-screen">
       
-      {/* Top Navigation */}
       <div className="flex items-center justify-between mb-2">
         <button
           onClick={() => navigate('/courses')}
@@ -163,10 +138,8 @@ export default function CourseDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column (Main Content) */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* Video Player Area */}
           <div className="bg-[#1E293B] rounded-[24px] aspect-video relative overflow-hidden shadow-lg group">
             {!isPlaying ? (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -187,7 +160,6 @@ export default function CourseDetail() {
             )}
           </div>
 
-          {/* Description Card */}
           <div className="bg-white p-8 rounded-[24px] shadow-sm border border-slate-100">
             <h1 className="text-2xl font-bold text-slate-800 mb-1">
               {course.title}
@@ -205,14 +177,12 @@ export default function CourseDetail() {
           </div>
         </div>
 
-        {/* Right Column (Course Content Sidebar) */}
         <div className="lg:col-span-4">
           <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden sticky top-8">
             <div className="p-6">
               <h2 className="text-xl font-bold text-slate-800 mb-4">Course Content</h2>
               
               <div className="space-y-3">
-                {/* 1. JIKA DATA LESSONS BERUBAH ARRAY OBJECT LAMA */}
                 {course.lessons && Array.isArray(course.lessons) ? (
                   course.lessons.map((lesson, idx) => {
                     const isChecked = completedLessons.includes(lesson.id);
@@ -253,8 +223,7 @@ export default function CourseDetail() {
                       </div>
                     );
                   })
-                ) : /* 2. JIKA DATA LESSONS BERUPA INTEGER / ANGKA DARI POSTGRESQL */
-                course.lessons && (!isNaN(course.lessons) || typeof course.lessons === 'number') ? (
+                ) : course.lessons && (!isNaN(course.lessons) || typeof course.lessons === 'number') ? (
                   Array.from({ length: Number(course.lessons) || 0 }).map((_, idx) => {
                     const isChecked = completedLessons.includes(idx);
                     const isActive = idx === 0 && !isChecked;
@@ -296,7 +265,6 @@ export default function CourseDetail() {
                   })
                 ) : null}
 
-                {/* 3. JIKA DATA MATERI KOSONG */}
                 {(!course.lessons || Number(course.lessons) === 0) && (
                   <p className="text-center py-10 text-slate-400 text-sm italic">
                     No lessons available yet.
@@ -304,9 +272,6 @@ export default function CourseDetail() {
                 )}
               </div>
 
-              {/* ======================================= */}
-              {/* TOMBOL TANDAI SELESAI (DITAMBAHKAN) */}
-              {/* ======================================= */}
               <div className="mt-8 pt-6 border-t border-slate-100">
                 <button
                   onClick={handleFinishCourse}

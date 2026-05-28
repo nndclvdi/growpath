@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Target, Trophy, Clock, Zap, ArrowRight, Lock, BookOpen, Calendar } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import API from '../api/axios';
 
 export default function Dashboard() {
   const { user, progress, courses } = useAppContext();
   const navigate = useNavigate();
 
-  // State untuk menyimpan data dinamis dari Backend
   const [dashboardStats, setDashboardStats] = useState({
     streak: 0,
     completed: 0,
@@ -22,22 +22,19 @@ export default function Dashboard() {
       if (!user?.id) return;
 
       try {
-        // 1. Ambil Data Statistik (Progress)
-        const statRes = await fetch(`http://localhost:5000/api/progress/${user.id}`);
-        if (statRes.ok) {
-          const statData = await statRes.json();
-          setDashboardStats(statData.stats);
+        // Mengambil data progress dan roadmap secara bersamaan untuk mempercepat loading
+        const [statRes, rmRes] = await Promise.all([
+          API.get(`/progress/${user.id}`),
+          API.get('/roadmaps')
+        ]);
+
+        if (statRes.data?.stats) {
+          setDashboardStats(statRes.data.stats);
         }
 
-        // 2. Ambil Data Roadmap untuk Sidebar
-        const rmRes = await fetch('http://localhost:5000/api/roadmaps');
-        if (rmRes.ok) {
-          const rmData = await rmRes.json();
-          
-          // Format data roadmap agar sesuai dengan UI Dashboard
-          const formattedRoadmap = rmData.map((item, index) => {
+        if (rmRes.data) {
+          const formattedRoadmap = rmRes.data.map((item, index) => {
             const phaseId = `phase${index + 1}`;
-            // Asumsi setiap phase di frontend punya 2 item (category & level)
             const checklist = progress?.roadmapChecklist?.[phaseId] || [];
             const isCompleted = checklist.length >= 2;
 
@@ -54,7 +51,6 @@ export default function Dashboard() {
               }
             }
 
-            // Bersihkan judul panjang agar pas di sidebar
             const shortTitle = item.title.replace(`Step ${index + 1}: `, '').replace(' Roadmap', '');
 
             return {
@@ -64,10 +60,10 @@ export default function Dashboard() {
             };
           });
 
-          setRoadmapSteps(formattedRoadmap.slice(0, 4)); // Ambil maksimal 4 step untuk dashboard
+          setRoadmapSteps(formattedRoadmap.slice(0, 4)); 
         }
       } catch (error) {
-        console.error("Gagal mengambil data dashboard:", error);
+        console.error("Gagal mengambil data dashboard:", error.response?.data?.message || error.message);
       } finally {
         setLoading(false);
       }
@@ -76,7 +72,6 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [user, progress?.roadmapChecklist]);
 
-  // 1. MAPPING STATISTIK (Menggunakan data dari Backend)
   const stats = [
     { 
       title: 'Current Streak', 
@@ -100,11 +95,9 @@ export default function Dashboard() {
     },
   ];
 
-  // 2. KURSUS YANG SEDANG AKTIF (Fallback aman dari UI lama)
   const activeCourseIds = progress?.activeCourses?.map(ac => ac.courseId?.toString()) || [];
   const myActiveCourses = courses?.filter(c => activeCourseIds.includes((c.id || c._id)?.toString())) || [];
   
-  // Jika user belum punya course aktif, ambil list course default agar dashboard tidak kosong
   const displayCourses = myActiveCourses.length > 0 ? myActiveCourses.slice(0, 2) : courses?.slice(0, 2) || [];
 
   if (loading) {
