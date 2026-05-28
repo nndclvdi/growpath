@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAppContext } from '../context/AppContext';
+// import { useAppContext } from '../context/AppContext'; // Bisa dihapus/dikomen jika tidak dipakai lagi di sini
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -9,7 +9,6 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
 
-  const { login } = useAppContext();
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
@@ -26,6 +25,7 @@ export default function Register() {
     }
 
     try {
+      // 1. Kirim data registrasi ke Backend
       const response = await fetch(
         'http://localhost:5000/api/auth/register',
         {
@@ -43,33 +43,18 @@ export default function Register() {
 
       const data = await response.json();
 
+      // 2. Jika gagal (misal email sudah ada, atau data kosong)
       if (!response.ok) {
         alert(data.message);
         return;
       }
 
-      const loginResponse = await fetch(
-        'http://localhost:5000/api/auth/login',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }
-      );
+      // 3. JIKA BERHASIL (Perubahan alur ada di sini)
+      alert('Registrasi berhasil! Silakan login menggunakan email dan password Anda.');
+      
+      // Langsung arahkan ke halaman login
+      navigate('/login-user');
 
-      const loginData = await loginResponse.json();
-
-      localStorage.setItem('token', loginData.token);
-      localStorage.setItem('user', JSON.stringify(loginData.user));
-
-      login(loginData.user);
-
-      navigate('/dashboard');
     } catch (error) {
       console.log(error);
       alert('Server error');
@@ -160,7 +145,6 @@ export default function Register() {
                   </svg>
                 </button>
               </div>
-              {/* Garis kecil di bawah password sesuai gambar */}
               <div className="w-24 h-1 bg-slate-100 rounded-full mt-2"></div>
             </div>
 

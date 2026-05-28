@@ -13,7 +13,8 @@ export default function Login() {
     e.preventDefault();
 
     try {
-      const response = await fetch('/api/auth/login-user', { 
+      // KODE YANG BENAR
+      const response = await fetch('http://localhost:5000/api/auth/login-user', { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
