@@ -18,7 +18,6 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 1. Validasi awal di sisi frontend
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -30,12 +29,11 @@ export default function ResetPassword() {
     }
 
     setIsLoading(true);
-    setError(''); // Bersihkan error sebelumnya jika ada
+    setError(''); 
 
     try {
-      // 2. Kirim data ke backend
-      // GANTI URL INI dengan endpoint API backend Anda yang sebenarnya
-      const response = await fetch('http://localhost:3000/api/reset-password', {
+      // PERBAIKAN: Mengarah ke port 5000 (Backend API Anda)
+      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,24 +46,20 @@ export default function ResetPassword() {
 
       const data = await response.json();
 
-      // 3. Tangani jika backend merespon dengan error (contoh: token expired)
       if (!response.ok) {
         throw new Error(data.message || 'Failed to reset password. Please try again.');
       }
 
-      // 4. Jika sukses
       alert('Password successfully reset!');
       navigate('/login');
 
     } catch (err) {
-      // Tampilkan pesan error ke layar
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Jika tidak ada token di URL, tampilkan pesan error
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">

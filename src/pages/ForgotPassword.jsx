@@ -5,15 +5,38 @@ import { useNavigate } from 'react-router-dom';
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Panggil API Backend di sini
-    // await fetch('/api/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
-    
-    // Simulasi sukses
-    setIsSubmitted(true);
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Memanggil API Backend Node.js
+      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Gagal mengirim email reset password.');
+      }
+
+      // Jika sukses, ubah tampilan ke layar sukses
+      setIsSubmitted(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -27,9 +50,16 @@ export default function ForgotPassword() {
         {!isSubmitted ? (
           <>
             <h1 className="text-2xl font-bold text-slate-800 mb-2">Forgot Password?</h1>
-            <p className="text-slate-500 text-sm mb-8">
+            <p className="text-slate-500 text-sm mb-6">
               Enter the email address associated with your account and we'll send you a link to reset your password.
             </p>
+
+            {/* Menampilkan Pesan Error Jika Gagal */}
+            {error && (
+              <div className="p-3 mb-6 text-sm text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
@@ -41,14 +71,23 @@ export default function ForgotPassword() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-700 font-medium"
+                    disabled={isLoading}
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-700 font-medium disabled:opacity-50"
                     placeholder="Enter your email"
                   />
                 </div>
               </div>
 
-              <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200">
-                Send Reset Link
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className={`w-full py-4 text-white rounded-2xl font-bold transition-all shadow-lg ${
+                  isLoading 
+                    ? 'bg-indigo-400 cursor-not-allowed shadow-none' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
+                }`}
+              >
+                {isLoading ? 'Sending...' : 'Send Reset Link'}
               </button>
             </form>
           </>
