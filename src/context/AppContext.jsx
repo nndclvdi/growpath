@@ -42,6 +42,14 @@ const initialTalentMappings = [
   { id: 2, name: 'Jane Smith', role: 'Product Designer', department: 'Design', performance: 'Medium', potential: 'High', image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' },
 ];
 
+// Template kosong yang bersih untuk user baru
+const defaultProgress = { 
+  completedCourses: [], 
+  activeCourses: [], 
+  roadmapChecklist: {}, 
+  assessments: [] 
+};
+
 export const AppProvider = ({ children }) => {
   // =========================
   // STATE MANAGEMENT
@@ -53,20 +61,17 @@ export const AppProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(true);
 
+  // Mengambil progress dari memori, jika error/kosong, gunakan template bersih
   const [progress, setProgress] = useState(() => {
-    const saved = localStorage.getItem('growpath_progress');
-    return saved ? JSON.parse(saved) : { 
-      completedCourses: [], 
-      activeCourses: [], 
-      roadmapChecklist: {}, 
-      assessments: [] 
-    };
+    try {
+      const saved = localStorage.getItem('growpath_progress');
+      return saved ? JSON.parse(saved) : defaultProgress;
+    } catch (e) {
+      return defaultProgress;
+    }
   });
 
-  // [FIXED]: Diubah murni menjadi array kosong secara ringkas agar tidak merusak compile React
   const [courses, setCourses] = useState([]);
-
-  // Pure state array kosong karena bersumber langsung dari database PostgreSQL
   const [availableAssessments, setAvailableAssessments] = useState([]);
 
   const [talentMappings, setTalentMappings] = useState(() => {
@@ -80,7 +85,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/check-auth', { 
+        const response = await fetch('http://localhost:5000/api/auth/check-auth', { 
           method: 'GET',
           credentials: 'include' 
         });
@@ -89,9 +94,12 @@ export const AppProvider = ({ children }) => {
           const data = await response.json();
           setUser(data.user);
         } else if (response.status === 401) {
+          // Jika sesi habis, BERSIHKAN SEMUA memori agar tidak bocor ke user lain
           setUser(null);
+          setProgress(defaultProgress);
           localStorage.removeItem('growpath_user');
           localStorage.removeItem('adminData');
+          localStorage.removeItem('growpath_progress'); 
         }
       } catch (err) {
         console.log("Koneksi tidak stabil, menggunakan sesi lokal.");
@@ -103,7 +111,7 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   // ========================================================
-  // FETCH REAL DATA ASSESSMENTS DARI POSTGRESQL (OPTIMIZED)
+  // FETCH REAL DATA ASSESSMENTS DARI POSTGRESQL 
   // ========================================================
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -115,28 +123,19 @@ export const AppProvider = ({ children }) => {
 
         if (response.ok) {
           const data = await response.json();
-          
-          // Pengaman ekstra jika data dibungkus dalam properti .assessments atau .data oleh backend
-          const cleanAssessments = Array.isArray(data) 
-            ? data 
-            : (data.assessments || data.data || []);
-            
+          const cleanAssessments = Array.isArray(data) ? data : (data.assessments || data.data || []);
           setAvailableAssessments(cleanAssessments);
-        } else {
-          console.error("Gagal mengambil data kuis dari server.");
         }
       } catch (error) {
         console.error("Koneksi gagal terhubung ke API assessments:", error);
       }
     };
 
-    if (user) {
-      fetchAssessments();
-    }
+    if (user) fetchAssessments();
   }, [user]);
 
   // ========================================================
-  // FETCH REAL DATA COURSES DARI POSTGRESQL (OPTIMIZED)
+  // FETCH REAL DATA COURSES DARI POSTGRESQL 
   // ========================================================
   useEffect(() => {
     const fetchCourses = async () => {
@@ -148,39 +147,29 @@ export const AppProvider = ({ children }) => {
 
         if (response.ok) {
           const data = await response.json();
-          
-          // Pengaman ekstra: Mendeteksi apakah respons berbentuk array langsung 
-          // atau dibungkus objek nested seperti data.courses / data.courses.data
-          const cleanCourses = Array.isArray(data)
-            ? data
-            : (data.courses || data.data || []);
-            
+          const cleanCourses = Array.isArray(data) ? data : (data.courses || data.data || []);
           setCourses(cleanCourses);
-        } else {
-          console.error("Gagal mengambil data courses dari server.");
         }
       } catch (error) {
         console.error("Koneksi gagal terhubung ke API courses:", error);
       }
     };
 
-    if (user) {
-      fetchCourses();
-    }
+    if (user) fetchCourses();
   }, [user]);
 
   // =========================
   // PERSISTENCE (LOCAL STORAGE)
   // =========================
   useEffect(() => {
-    localStorage.setItem('growpath_user', JSON.stringify(user));
+    if (user) {
+      localStorage.setItem('growpath_user', JSON.stringify(user));
+    }
   }, [user]);
 
   useEffect(() => {
     localStorage.setItem('growpath_progress', JSON.stringify(progress));
   }, [progress]);
-
-  // Sinkronisasi LocalStorage untuk courses dan assessments sudah dicabut demi keamanan integrasi PostgreSQL
 
   useEffect(() => {
     localStorage.setItem('growpath_talent_mappings', JSON.stringify(talentMappings));
@@ -189,18 +178,26 @@ export const AppProvider = ({ children }) => {
   // =========================
   // AUTH ACTIONS
   // =========================
-  const login = (userData) => setUser(userData);
+  const login = (userData) => {
+    setUser(userData);
+    // Saat login baru, jika progress masih nyangkut, kita pastikan meresetnya 
+    // jika kita ingin progress ditarik dari database nantinya.
+  };
 
   const logout = async () => {
     try {
-      const response = await fetch('/api/auth/logout', { 
+      const response = await fetch('http://localhost:5000/api/auth/logout', { 
         method: 'POST', 
         credentials: 'include' 
       });
       if (response.ok) {
         setUser(null);
+        setProgress(defaultProgress); // Pastikan state RAM ikut bersih
+        
+        // Hapus SEMUA riwayat lokal
         localStorage.removeItem('growpath_user');
         localStorage.removeItem('adminData');
+        localStorage.removeItem('growpath_progress'); // INI KUNCI FIX-NYA
         return true;
       }
     } catch (error) {
@@ -216,39 +213,42 @@ export const AppProvider = ({ children }) => {
   // =========================
   const toggleRoadmapItem = (phaseId, itemId) => {
     setProgress(prev => {
-      const current = prev.roadmapChecklist[phaseId] || [];
+      const currentChecklist = prev.roadmapChecklist || {};
+      const current = currentChecklist[phaseId] || [];
       const next = current.includes(itemId) ? current.filter(id => id !== itemId) : [...current, itemId];
-      return { ...prev, roadmapChecklist: { ...prev.roadmapChecklist, [phaseId]: next } };
+      return { ...prev, roadmapChecklist: { ...currentChecklist, [phaseId]: next } };
     });
   };
 
   const saveAssessment = (assessmentResult) => {
     const attemptId = assessmentResult.attemptId || Date.now().toString();
     const newAssessment = { ...assessmentResult, attemptId };
-    setProgress(prev => ({ ...prev, assessments: [...prev.assessments, newAssessment] }));
+    setProgress(prev => ({ ...prev, assessments: [...(prev.assessments || []), newAssessment] }));
     return attemptId;
   };
 
   const deleteAssessmentHistory = (attemptId) => {
-    setProgress(prev => ({ ...prev, assessments: prev.assessments.filter(a => a.attemptId !== attemptId) }));
+    setProgress(prev => ({ ...prev, assessments: (prev.assessments || []).filter(a => a.attemptId !== attemptId) }));
   };
 
   const markCourseCompleted = (courseId) => {
     setProgress(prev => {
       const targetId = courseId.toString();
+      const prevCompleted = prev.completedCourses || [];
+      const prevActive = prev.activeCourses || [];
 
-      const updatedCompleted = prev.completedCourses.map(id => id.toString()).includes(targetId)
-        ? prev.completedCourses
-        : [...prev.completedCourses, targetId];
+      const updatedCompleted = prevCompleted.includes(targetId)
+        ? prevCompleted
+        : [...prevCompleted, targetId];
 
-      let updatedActive = prev.activeCourses?.map(ac => {
+      let updatedActive = prevActive.map(ac => {
         if (ac.courseId.toString() === targetId) {
           return { ...ac, percentage: 100, currentModuleName: 'Selesai' };
         }
         return ac;
-      }) || [];
+      });
 
-      const hasActive = prev.activeCourses?.some(ac => ac.courseId.toString() === targetId);
+      const hasActive = prevActive.some(ac => ac.courseId.toString() === targetId);
       if (!hasActive) {
         updatedActive.push({
           courseId: targetId,
