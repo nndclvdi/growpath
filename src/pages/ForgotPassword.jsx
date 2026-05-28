@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import API from '../api/axios'; // 1. IMPORT INSTANCE AXIOS PUSAT
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -15,25 +16,15 @@ export default function ForgotPassword() {
     setError('');
 
     try {
-      // Memanggil API Backend Node.js
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal mengirim email reset password.');
-      }
+      // 2. GUNAKAN AXIOS (Tidak perlu headers, method, atau JSON.stringify lagi!)
+      await API.post('/auth/forgot-password', { email });
 
       // Jika sukses, ubah tampilan ke layar sukses
       setIsSubmitted(true);
     } catch (err) {
-      setError(err.message);
+      // 3. MENANGKAP ERROR KHUSUS DARI AXIOS
+      // err.response.data.message mengambil pesan kiriman dari backend res.status().json()
+      setError(err.response?.data?.message || 'Gagal mengirim email reset password. Silakan coba lagi.');
     } finally {
       setIsLoading(false);
     }

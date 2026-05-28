@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-// import { useAppContext } from '../context/AppContext'; // Disembunyikan karena tidak dipakai lagi di sini
+import API from '../api/axios'; // 1. IMPORT AXIOS PUSAT DI SINI
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -25,39 +25,23 @@ export default function Register() {
     }
 
     try {
-      // 1. Kirim data registrasi ke Backend
-      const response = await fetch(
-        'http://localhost:5000/api/auth/register',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            password,
-          }),
-        }
-      );
+      // 2. MENGGUNAKAN AXIOS: Kode jadi super pendek dan bersih!
+      await API.post('/auth/register', {
+        name,
+        email,
+        password,
+      });
 
-      const data = await response.json();
-
-      // 2. Jika gagal (misal email sudah ada, atau data kosong)
-      if (!response.ok) {
-        alert(data.message);
-        return;
-      }
-
-      // 3. JIKA BERHASIL (Perubahan alur ada di sini)
+      // 3. JIKA BERHASIL (Axios otomatis menganggap status 200/201 sebagai sukses)
       alert('Registrasi berhasil! Silakan login menggunakan email dan password Anda.');
       
       // Langsung arahkan ke halaman login
       navigate('/login');
 
     } catch (error) {
-      console.log(error);
-      alert('Server error');
+      console.error(error);
+      // 4. TANGKAP ERROR AXIOS: Mengambil pesan dari backend (misal: "Email sudah terdaftar")
+      alert(error.response?.data?.message || 'Terjadi kesalahan pada server');
     }
   };
 

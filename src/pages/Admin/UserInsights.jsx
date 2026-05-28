@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Loader2, AlertCircle, MoreHorizontal, LogOut, Shield } from 'lucide-react';
+import { Download, Loader2, AlertCircle, MoreHorizontal, Shield } from 'lucide-react';
+import API from '../../api/axios'; // Pastikan path ini tepat menuju axios.js Anda
 
 export default function UserInsights() {
   const [users, setUsers] = useState([]);
@@ -7,9 +8,6 @@ export default function UserInsights() {
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  // ==========================================
-  // 1. VALIDASI SESSION & FETCH DATA
-  // ==========================================
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -17,41 +15,26 @@ export default function UserInsights() {
         setError(null);
         setSessionExpired(false);
 
-        console.log('🔍 Fetching users...');
+        const response = await API.get('/users');
+        const data = response.data;
 
-        const response = await fetch('http://localhost:5000/api/users', {
-          method: 'GET',
-          credentials: 'include', 
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-
-        const data = await response.json();
-
-        // ==========================================
-        // 2. HANDLE ERROR SESSION
-        // ==========================================
-        if (response.status === 401 || response.status === 403) {
-          console.error('❌ Session expired atau bukan admin:', data.message);
-          setSessionExpired(true);
-          setError(data.message || 'Sesi Anda telah berakhir');
-          setTimeout(() => {
-            window.location.href = '/login?session=expired';
-          }, 3000);
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(data.message || `HTTP ${response.status}`);
-        }
-
-        console.log('✅ Users data:', data);
         setUsers(Array.isArray(data) ? data : (data.users || []));
 
       } catch (err) {
-        console.error("🚨 Fetch Error:", err);
-        setError(err.message);
+        if (err.response) {
+          // Tangkap error session (401 Unauthorized / 403 Forbidden)
+          if (err.response.status === 401 || err.response.status === 403) {
+            setSessionExpired(true);
+            setError(err.response.data?.message || 'Sesi Anda telah berakhir atau Anda bukan admin.');
+            setTimeout(() => {
+              window.location.href = '/login?session=expired';
+            }, 3000);
+          } else {
+            setError(err.response.data?.message || `Terjadi kesalahan (HTTP ${err.response.status})`);
+          }
+        } else {
+          setError(err.message || 'Terjadi kesalahan jaringan.');
+        }
       } finally {
         setLoading(false);
       }
@@ -60,15 +43,9 @@ export default function UserInsights() {
     fetchUsers();
   }, []);
 
-  // ==========================================
-  // 3. HANDLE LOGOUT
-  // ==========================================
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:5000/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await API.post('/auth/logout');
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
@@ -78,9 +55,6 @@ export default function UserInsights() {
     }
   };
 
-  // ==========================================
-  // 4. HANDLE EXPORT CSV
-  // ==========================================
   const handleExportCSV = () => {
     if (users.length === 0) {
       alert('Tidak ada data untuk diexport');
@@ -118,7 +92,6 @@ export default function UserInsights() {
 
   return (
     <div className="p-4 md:p-10 space-y-8 w-full mx-auto">
-      {/* Header - Larger Text */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 px-2">
         <div className="flex items-center gap-5">
           <div className="p-4 bg-blue-500/20 rounded-2xl shadow-inner">
@@ -144,7 +117,6 @@ export default function UserInsights() {
         </button>
       </div>
 
-      {/* Error State */}
       {error && (
         <div className="bg-red-500/10 border-2 border-red-500/20 p-10 rounded-[2.5rem]">
           <div className="flex items-start gap-6">
@@ -162,7 +134,6 @@ export default function UserInsights() {
         </div>
       )}
 
-      {/* Data Table - HIGH VISIBILITY VERSION */}
       {!error && (
         <div className="bg-[#0F172A] border border-slate-800 rounded-[3rem] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
@@ -181,14 +152,12 @@ export default function UserInsights() {
                 {users.length > 0 ? (
                   users.map((user, index) => (
                     <tr key={user.id || index} className="hover:bg-blue-600/[0.03] transition-colors group">
-                      {/* Font Mono & Bold ID */}
                       <td className="py-8 px-10">
                         <span className="text-blue-500 font-black font-mono text-lg">
                           #{user.id || index + 1}
                         </span>
                       </td>
                       
-                      {/* Big Name with Avatar */}
                       <td className="py-8 px-10">
                         <div className="flex items-center gap-5">
                           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-xl font-black shadow-lg">
@@ -200,12 +169,10 @@ export default function UserInsights() {
                         </div>
                       </td>
 
-                      {/* Large Email Text */}
                       <td className="py-8 px-10 text-slate-300 text-lg font-medium">
                         {user.email || '—'}
                       </td>
 
-                      {/* Explicit Role Badge */}
                       <td className="py-8 px-10">
                         <span className={`px-6 py-2.5 rounded-2xl text-sm font-black uppercase tracking-tighter border-2 ${
                           user.role === 'admin' 
@@ -216,12 +183,10 @@ export default function UserInsights() {
                         </span>
                       </td>
 
-                      {/* Formatted Date */}
                       <td className="py-8 px-10 text-slate-400 text-lg">
                         {user.created_at ? new Date(user.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
 
-                      {/* Large Action Button */}
                       <td className="py-8 px-10 text-center">
                         <button className="text-slate-500 hover:text-white p-4 rounded-2xl hover:bg-slate-800 transition-all transform hover:scale-125">
                           <MoreHorizontal size={28} />

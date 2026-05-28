@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import API from '../api/axios'; // 1. IMPORT INSTANCE AXIOS
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -18,6 +19,7 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validasi awal di sisi frontend
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -32,34 +34,25 @@ export default function ResetPassword() {
     setError(''); 
 
     try {
-      // PERBAIKAN: Mengarah ke port 5000 (Backend API Anda)
-      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token: token,
-          newPassword: formData.password
-        })
+      // 2. GUNAKAN AXIOS: Jauh lebih rapi tanpa fetch, headers, dan JSON.stringify!
+      await API.post('/auth/reset-password', {
+        token: token,
+        newPassword: formData.password
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to reset password. Please try again.');
-      }
-
+      // Jika sukses (status 200 OK)
       alert('Password successfully reset!');
       navigate('/login');
 
     } catch (err) {
-      setError(err.message);
+      // 3. TANGKAP ERROR AXIOS: Mengambil pesan spesifik dari backend Anda
+      setError(err.response?.data?.message || 'Failed to reset password. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Jika tidak ada token di URL, tampilkan pesan error
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">

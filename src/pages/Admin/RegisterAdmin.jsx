@@ -1,27 +1,14 @@
 import React, { useState } from 'react';
-
-import {
-  User,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  Loader2 // Tambahan untuk feedback loading
-} from 'lucide-react';
-
-import {
-  Link,
-  useNavigate
-} from 'react-router-dom';
+import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import API from '../../api/axios'; // Pastikan jumlah ../ benar, sesuaikan dengan struktur folder Anda
 
 export default function RegisterAdmin() {
-
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false); // State untuk loading
-  const [error, setError] = useState(''); // State untuk pesan error
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -36,40 +23,24 @@ export default function RegisterAdmin() {
     });
   };
 
-  // ==========================================
-  // LOGIKA INTEGRASI DATABASE (API)
-  // ==========================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Kita kirim role 'admin' agar masuk ke database sebagai admin
-        body: JSON.stringify({ 
-          ...formData, 
-          role: 'admin' 
-        }), 
+      // Menggunakan Axios untuk POST request
+      await API.post('/auth/register', { 
+        ...formData, 
+        role: 'admin' 
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registrasi gagal, coba lagi.');
-      }
-
-      console.log('Register Success:', data);
       alert('Registrasi Berhasil! Silakan masuk.');
       navigate('/login-admin');
-
     } catch (err) {
-      console.error('Register Error:', err.message);
-      setError(err.message);
+      // Axios menyimpan pesan error di err.response.data
+      console.error('Register Error:', err);
+      setError(err.response?.data?.message || 'Registrasi gagal, coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -77,56 +48,25 @@ export default function RegisterAdmin() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] flex items-center justify-center px-4">
-
       <div className="w-full max-w-md">
-
-        {/* CARD */}
         <div className="bg-white rounded-[28px] shadow-xl border border-slate-100 p-8">
-
-          {/* HEADER */}
           <div className="text-center mb-8">
-
-            <h1 className="text-blue-600 font-bold text-lg">
-              GrowPath Admin
-            </h1>
-
-            <h2 className="text-3xl font-bold text-slate-800 mt-4">
-              Create Admin Account
-            </h2>
-
-            <p className="text-slate-400 text-sm mt-2">
-              Register new GrowPath administrator
-            </p>
-
+            <h1 className="text-blue-600 font-bold text-lg">GrowPath Admin</h1>
+            <h2 className="text-3xl font-bold text-slate-800 mt-4">Create Admin Account</h2>
+            <p className="text-slate-400 text-sm mt-2">Register new GrowPath administrator</p>
           </div>
 
-          {/* ERROR MESSAGE (Muncul jika ada masalah) */}
           {error && (
             <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl text-center">
               {error}
             </div>
           )}
 
-          {/* FORM */}
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-          >
-
-            {/* NAME */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-
-              <label className="text-sm font-semibold text-slate-700 block mb-2">
-                Full Name
-              </label>
-
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Full Name</label>
               <div className="relative">
-
-                <User
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
+                <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   name="name"
@@ -136,24 +76,13 @@ export default function RegisterAdmin() {
                   className="w-full h-12 pl-11 pr-4 rounded-xl bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all"
                   required
                 />
-
               </div>
             </div>
 
-            {/* EMAIL */}
             <div>
-
-              <label className="text-sm font-semibold text-slate-700 block mb-2">
-                Admin Email
-              </label>
-
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Admin Email</label>
               <div className="relative">
-
-                <Mail
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
+                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="email"
                   name="email"
@@ -163,24 +92,13 @@ export default function RegisterAdmin() {
                   className="w-full h-12 pl-11 pr-4 rounded-xl bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all"
                   required
                 />
-
               </div>
             </div>
 
-            {/* PASSWORD */}
             <div>
-
-              <label className="text-sm font-semibold text-slate-700 block mb-2">
-                Password
-              </label>
-
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Password</label>
               <div className="relative">
-
-                <Lock
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
@@ -190,23 +108,16 @@ export default function RegisterAdmin() {
                   className="w-full h-12 pl-11 pr-12 rounded-xl bg-slate-100 border border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all"
                   required
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {showPassword ? (
-                    <EyeOff size={18} />
-                  ) : (
-                    <Eye size={18} />
-                  )}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
-
               </div>
             </div>
 
-            {/* BUTTON */}
             <button
               type="submit"
               disabled={loading}
@@ -224,45 +135,15 @@ export default function RegisterAdmin() {
                 </>
               )}
             </button>
-
           </form>
 
-          {/* LOGIN */}
           <p className="text-center text-sm text-slate-500 mt-6">
             Already have admin account?{' '}
-            <Link
-              to="/login-admin"
-              className="text-blue-600 font-semibold hover:underline"
-            >
+            <Link to="/login-admin" className="text-blue-600 font-semibold hover:underline">
               Sign In
             </Link>
           </p>
-
         </div>
-
-        {/* FOOTER */}
-        <div className="text-center mt-8 space-y-3">
-
-          <p className="text-xs text-slate-400">
-            Secure administrator access for GrowPath system
-          </p>
-
-          <div className="flex items-center justify-center gap-4 text-xs text-slate-400">
-
-            <button className="hover:text-slate-600">
-              Terms of Service
-            </button>
-
-            <span>•</span>
-
-            <button className="hover:text-slate-600">
-              Privacy Policy
-            </button>
-
-          </div>
-
-        </div>
-
       </div>
     </div>
   );

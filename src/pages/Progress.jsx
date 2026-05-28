@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 import { Target, Zap, Award, Star, Clock, TrendingUp, BookOpen, Trophy } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import API from '../api/axios'; // 1. IMPORT AXIOS PUSAT DI SINI
 
 // Memetakan string dari database ke komponen ikon Lucide
 const iconMap = {
@@ -34,19 +35,15 @@ export default function Progress() {
       if (!user?.id) return;
       
       try {
-        // ✅ PERBAIKAN: Menggunakan backtick (`) agar ${user.id} terbaca sebagai angka
-        const response = await fetch(`http://localhost:5000/api/progress/${user.id}`);
+        // 2. MENGGUNAKAN AXIOS GET: Sangat ringkas dan langsung ke URL yang tepat
+        const response = await API.get(`/progress/${user.id}`);
         
-        // Pengecekan status response
-        if (!response.ok) {
-           throw new Error(`Server merespons dengan status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        setData(result);
+        // Axios otomatis mengubahnya jadi JSON, tinggal ambil dari response.data
+        setData(response.data);
         
       } catch (error) {
-        console.error("Gagal mengambil data progress:", error.message);
+        // 3. TANGKAP ERROR AXIOS: Jauh lebih detail
+        console.error("Gagal mengambil data progress:", error.response?.data?.message || error.message);
       } finally {
         setLoading(false);
       }

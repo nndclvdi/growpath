@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 export default function Layout() {
   const { user } = useAppContext();
 
+  // Jika user belum login, lempar ke halaman login
   if (!user) {
     return <Navigate to="/login" replace />;
   }

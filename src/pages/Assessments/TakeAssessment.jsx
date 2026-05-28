@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+import API from '../../api/axios';
 
 export default function TakeAssessment() {
   const { id } = useParams();
@@ -37,10 +38,8 @@ export default function TakeAssessment() {
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // =========================
-  // FIX STATE UPDATE (IMPORTANT)
-  // =========================
   const handleSelectOption = (optionIndex) => {
     setAnswers((prev) => ({
       ...prev,
@@ -50,9 +49,6 @@ export default function TakeAssessment() {
 
   const selectedAnswer = answers[currentQuestion];
 
-  // =========================
-  // NEXT / SUBMIT HANDLER
-  // =========================
   const handleNext = async () => {
     const isLast = currentQuestion === questions.length - 1;
 
@@ -61,9 +57,6 @@ export default function TakeAssessment() {
       return;
     }
 
-    // =========================
-    // MOCK RESULT
-    // =========================
     const score = Math.floor(Math.random() * 40) + 60;
 
     const breakdown = [
@@ -86,22 +79,15 @@ export default function TakeAssessment() {
     };
 
     try {
-      const response = await fetch('/api/assessments/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          assessment_id: id,
-          score
-        })
+      setIsSubmitting(true);
+      
+      // Menggunakan Axios POST
+      const response = await API.post('/assessments/submit', {
+        assessment_id: id,
+        score
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Submit failed');
-      }
-
-      const data = await response.json();
+      const data = response.data;
 
       const finalResult = {
         ...assessmentResult,
@@ -113,7 +99,9 @@ export default function TakeAssessment() {
 
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      alert(err.response?.data?.message || 'Submit failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -123,7 +111,6 @@ export default function TakeAssessment() {
     <div className="max-w-3xl mx-auto py-8">
       <div className="bg-white rounded-3xl p-8 shadow-sm border">
 
-        {/* HEADER */}
         <div className="flex justify-between mb-6">
           <h2 className="font-bold text-xl">
             {assessmentData?.title || 'Assessment'}
@@ -134,7 +121,6 @@ export default function TakeAssessment() {
           </span>
         </div>
 
-        {/* PROGRESS */}
         <div className="w-full h-2 bg-slate-100 rounded-full mb-8">
           <div
             className="h-2 bg-ocean-500 rounded-full transition-all"
@@ -142,12 +128,10 @@ export default function TakeAssessment() {
           />
         </div>
 
-        {/* QUESTION */}
         <h3 className="text-2xl font-semibold mb-6">
           {questions[currentQuestion].question}
         </h3>
 
-        {/* OPTIONS */}
         <div className="space-y-4">
           {questions[currentQuestion].options.map((option, index) => {
             const isSelected = selectedAnswer === index;
@@ -168,16 +152,17 @@ export default function TakeAssessment() {
           })}
         </div>
 
-        {/* BUTTON */}
         <div className="flex justify-end mt-8">
           <button
             onClick={handleNext}
-            disabled={selectedAnswer === undefined}
+            disabled={selectedAnswer === undefined || isSubmitting}
             className="px-8 py-3 bg-ocean-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {currentQuestion === questions.length - 1
-              ? 'Submit Assessment'
-              : 'Next Question'}
+            {isSubmitting 
+              ? 'Submitting...' 
+              : currentQuestion === questions.length - 1
+                ? 'Submit Assessment'
+                : 'Next Question'}
           </button>
         </div>
 
