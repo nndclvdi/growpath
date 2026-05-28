@@ -8,6 +8,9 @@ import AdminLayout from './components/AdminLayout';
 import UserRoute from './routes/UserRoute';
 import AdminRoute from './routes/AdminRoute';
 
+// Import Landing Page (Pastikan file LandingPage.jsx sudah dibuat di folder pages/)
+import LandingPage from './pages/LandingPage'; 
+
 // User Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -42,6 +45,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} /> {/* Landing Page sebagai halaman utama */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login-admin" element={<LoginAdmin />} />
@@ -50,9 +54,8 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* User Routes */}
-          <Route path="/" element={<UserRoute><Layout /></UserRoute>}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<UserRoute><Layout /></UserRoute>}>
+            <Route index element={<Dashboard />} />
             <Route path="assessments" element={<AssessmentList />} />
             <Route path="assessments/take/:id" element={<TakeAssessment />} />
             <Route path="assessments/result/:id" element={<AssessmentResult />} />
@@ -78,7 +81,7 @@ export default function App() {
           </Route>
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AppProvider>
