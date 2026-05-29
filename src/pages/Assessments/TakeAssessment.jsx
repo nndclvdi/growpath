@@ -81,7 +81,7 @@ export default function TakeAssessment() {
     try {
       setIsSubmitting(true);
       
-      // Menggunakan Axios POST
+      // PERBAIKAN 1: Kembalikan API route ke path backend yang benar (tanpa /dashboard)
       const response = await API.post('/assessments/submit', {
         assessment_id: id,
         score
@@ -95,7 +95,9 @@ export default function TakeAssessment() {
       };
 
       saveAssessment(finalResult);
-      navigate(`/assessments/result/${finalResult.attemptId}`);
+      
+      // PERBAIKAN 2: Tambahkan garis miring (/) di awal agar menjadi absolute URL
+      navigate(`/dashboard/assessments/result/${finalResult.attemptId}`);
 
     } catch (err) {
       console.error(err);

@@ -90,7 +90,8 @@ export default function CourseList() {
                   <span className="text-slate-500 font-medium text-sm">[ Video Thumbnail ]</span>
                 </div>
                 <button 
-                  onClick={() => navigate(`/courses/${courseId}`)}
+                  // PERBAIKAN 1: Tambahkan /dashboard agar URL menjadi absolut
+                  onClick={() => navigate(`/dashboard/courses/${courseId}`)}
                   className="absolute inset-0 bg-indigo-900/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <PlayCircle size={60} className="text-white drop-shadow-lg" />
@@ -121,7 +122,8 @@ export default function CourseList() {
                 </div>
                 
                 <button 
-                  onClick={() => navigate(`/courses/${courseId}`)}
+                  // PERBAIKAN 2: Tambahkan /dashboard agar URL menjadi absolut
+                  onClick={() => navigate(`/dashboard/courses/${courseId}`)}
                   className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all transform active:scale-95"
                 >
                   [ Enroll ]

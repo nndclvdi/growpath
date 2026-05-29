@@ -11,30 +11,34 @@ export default function ManageCourses() {
   const [editId, setEditId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Inisialisasi state sesuai kolom database
   const [courseData, setCourseData] = useState({
     title: '',
     description: '',
-    image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600'
+    image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600',
+    category: '',
+    duration: '',
+    lessons: 0
   });
 
-  const displayCourses = courses || [];
-
   const openAddForm = () => {
-    setCourseData({ title: '', description: '', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600' });
+    setCourseData({ title: '', description: '', image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600', category: '', duration: '', lessons: 0 });
     setIsEditing(false);
     setEditId(null);
     setIsFormOpen(true);
   };
 
   const openEditForm = (course) => {
-    const courseId = course.id || course._id;
     setCourseData({
       title: course.title || '',
       description: course.description || '',
-      image: course.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600'
+      image: course.image || '',
+      category: course.category || '',
+      duration: course.duration || '',
+      lessons: course.lessons || 0
     });
     setIsEditing(true);
-    setEditId(courseId);
+    setEditId(course.id || course._id);
     setIsFormOpen(true);
   };
 
@@ -42,179 +46,82 @@ export default function ManageCourses() {
     setIsFormOpen(false);
     setIsEditing(false);
     setEditId(null);
-    setCourseData({ title: '', description: '', image: '' });
   };
 
   const handleSubmit = async () => {
-    if (!courseData.title) {
-      alert('Course Title is required!');
-      return;
-    }
+    if (!courseData.title) return alert('Course Title is required!');
 
     try {
       setLoading(true);
-      let response;
+      const response = isEditing 
+        ? await API.put(`/courses/${editId}`, courseData)
+        : await API.post('/courses', courseData);
 
-      // Menggunakan Axios: Logika POST dan PUT jauh lebih bersih
-      if (isEditing) {
-        response = await API.put(`/courses/${editId}`, courseData);
-      } else {
-        response = await API.post('/courses', courseData);
-      }
-
-      const data = response.data;
-
-      // Update state lokal via Context
-      if (isEditing) {
-        const updatedPayload = {
-          ...data,
-          id: data.id || data._id || editId,
-          _id: data._id || data.id || editId
-        };
-        if (updateCourse) updateCourse(updatedPayload);
-      } else {
-        if (addCourse) addCourse(data);
-      }
+      if (isEditing) updateCourse(response.data);
+      else addCourse(response.data);
 
       closeForm();
     } catch (error) {
-      console.error(`Failed to save course:`, error);
-      alert(error.response?.data?.message || 'Failed to save course. Make sure you are logged in as Admin.');
+      alert(error.response?.data?.message || 'Failed to save course.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!id) return alert("Error: ID data tidak ditemukan!");
-    if (!window.confirm("Are you sure you want to delete this course?")) return;
-
-    try {
-      // Menggunakan Axios DELETE
-      await API.delete(`/courses/${id}`);
-
-      // Hapus dari state lokal
-      if (deleteCourse) deleteCourse(id);
-    } catch (error) {
-      console.error('Delete Error:', error);
-      alert(error.response?.data?.message || 'Failed to delete course.');
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-[#0F172A]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Manage Career Paths & Courses</h1>
+        <h1 className="text-2xl font-bold text-white">Manage Courses</h1>
         {!isFormOpen && (
-          <button 
-            onClick={openAddForm}
-            className="flex items-center gap-2 px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-700 transition-colors shadow-lg shadow-ocean-500/20"
-          >
+          <button onClick={openAddForm} className="flex items-center gap-2 px-4 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-700">
             <Plus size={16} /> Add New Course
           </button>
         )}
       </div>
 
       {isFormOpen && (
-        <div className="bg-[#0B1120] p-6 rounded-xl border border-slate-800 shadow-sm relative">
-          <button onClick={closeForm} className="absolute top-4 right-4 text-slate-400 hover:text-white">
-            <X size={20} />
-          </button>
+        <div className="bg-[#0B1120] p-6 rounded-xl border border-slate-800 relative">
+          <button onClick={closeForm} className="absolute top-4 right-4 text-slate-400"><X size={20} /></button>
+          <h2 className="font-bold text-white mb-4">{isEditing ? 'Edit' : 'Add'} Course</h2>
           
-          <h2 className="font-bold text-white mb-4">
-            {isEditing ? 'Edit Course' : 'Add New Course'}
-          </h2>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <input 
-              type="text" 
-              placeholder="Course Title" 
-              className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg focus:outline-none focus:border-ocean-500" 
-              value={courseData.title} 
-              onChange={e => setCourseData({...courseData, title: e.target.value})} 
-            />
-            <input 
-              type="text" 
-              placeholder="Image URL (Optional)" 
-              className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg focus:outline-none focus:border-ocean-500" 
-              value={courseData.image} 
-              onChange={e => setCourseData({...courseData, image: e.target.value})} 
-            />
-            <div className="md:col-span-2">
-              <textarea 
-                placeholder="Course Description" 
-                rows="3" 
-                className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg focus:outline-none focus:border-ocean-500 resize-none"
-                value={courseData.description}
-                onChange={e => setCourseData({...courseData, description: e.target.value})}
-              ></textarea>
-            </div>
+            <input type="text" placeholder="Title" className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg" value={courseData.title} onChange={e => setCourseData({...courseData, title: e.target.value})} />
+            <input type="text" placeholder="Image URL" className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg" value={courseData.image} onChange={e => setCourseData({...courseData, image: e.target.value})} />
+            <input type="text" placeholder="Category" className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg" value={courseData.category} onChange={e => setCourseData({...courseData, category: e.target.value})} />
+            <input type="text" placeholder="Duration (e.g. 10 hours)" className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg" value={courseData.duration} onChange={e => setCourseData({...courseData, duration: e.target.value})} />
+            <input type="number" placeholder="Number of Lessons" className="w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg" value={courseData.lessons} onChange={e => setCourseData({...courseData, lessons: e.target.value})} />
+            <textarea placeholder="Description" rows="2" className="md:col-span-2 w-full border border-slate-700 bg-[#0F172A] text-white p-2.5 rounded-lg" value={courseData.description} onChange={e => setCourseData({...courseData, description: e.target.value})} />
           </div>
-
-          <div className="flex gap-3">
-            <button onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-700 font-medium disabled:opacity-50">
-              {loading ? 'Saving...' : (isEditing ? 'Update Course' : 'Save Course')}
-            </button>
-            <button onClick={closeForm} className="px-6 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 font-medium">Cancel</button>
-          </div>
+          <button onClick={handleSubmit} className="px-6 py-2 bg-ocean-600 text-white rounded-lg">{isEditing ? 'Update' : 'Save'}</button>
         </div>
       )}
 
-      <div className="bg-[#0B1120] rounded-xl border border-slate-800 shadow-sm overflow-x-auto">
-        <table className="w-full text-left text-sm min-w-max">
-          <thead className="bg-[#0F172A] border-b border-slate-800">
-            <tr>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs">Course Info</th>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs max-w-sm">Description</th>
-              <th className="px-6 py-4 font-bold text-slate-300 uppercase tracking-wider text-xs text-right">Actions</th>
+      {/* Tabel */}
+      <table className="w-full text-left text-sm bg-[#0B1120] border border-slate-800 rounded-xl overflow-hidden">
+        <thead className="bg-[#0F172A]">
+          <tr>
+            <th className="px-6 py-4">Title</th>
+            <th className="px-6 py-4">Category</th>
+            <th className="px-6 py-4">Duration</th>
+            <th className="px-6 py-4">Lessons</th>
+            <th className="px-6 py-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800">
+          {courses?.map(c => (
+            <tr key={c.id}>
+              <td className="px-6 py-4 font-bold text-white">{c.title}</td>
+              <td className="px-6 py-4 text-slate-300">{c.category}</td>
+              <td className="px-6 py-4 text-slate-300">{c.duration}</td>
+              <td className="px-6 py-4 text-slate-300">{c.lessons}</td>
+              <td className="px-6 py-4 text-right">
+                <button onClick={() => openEditForm(c)} className="text-slate-400 hover:text-ocean-400 mr-3"><Edit2 size={16}/></button>
+                <button onClick={() => deleteCourse(c.id)} className="text-slate-400 hover:text-red-400"><Trash2 size={16}/></button>
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {displayCourses.map(course => {
-              const courseId = course.id || course._id;
-              return (
-                <tr key={courseId} className="hover:bg-[#0F172A] transition-colors">
-                  <td className="px-6 py-4 flex items-center gap-3">
-                    <img src={course.image} alt={course.title} className="w-12 h-12 object-cover rounded-lg border border-slate-700 bg-slate-900" />
-                    <div className="font-bold text-white">{course.title}</div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400 max-w-xs truncate" title={course.description}>
-                    {course.description || '-'}
-                  </td>
-                  <td className="px-6 py-4 flex gap-2 justify-end">
-                    <button onClick={() => openEditForm(course)} className="p-2 text-slate-400 hover:text-ocean-400 hover:bg-ocean-500/10 rounded-lg transition-colors" title="Edit">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={() => handleDelete(courseId)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {displayCourses.length === 0 && (
-              <tr>
-                <td colSpan="3" className="text-center py-12 text-slate-500">
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-                      <Trash2 size={24} className="text-slate-600" />
-                    </div>
-                    <p>No courses available.</p>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

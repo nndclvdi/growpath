@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Clock, BookOpen, Zap, CheckCircle2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import API from '../api/axios'; // 1. IMPORT AXIOS DI SINI
+import API from '../api/axios'; 
 
 export default function RoadmapDetail() {
   const { id } = useParams();
@@ -88,14 +88,12 @@ export default function RoadmapDetail() {
     // Update ke Database Backend
     if (user?.id) {
       try {
-        // 2. MENGGUNAKAN AXIOS: Kode jadi super ringkas!
         await API.post('/roadmaps/progress', {
           userId: user.id,
           phaseId: id,
           taskId: stringItemId
         });
       } catch (error) {
-        // Axios menangkap error otomatis
         console.error("Gagal sinkronisasi progress roadmap:", error.response?.data?.message || error.message);
       }
     }
@@ -109,7 +107,6 @@ export default function RoadmapDetail() {
     );
   }
 
-  // Cek progress khusus untuk phase ini
   const currentPhaseChecklist = progress?.roadmapChecklist?.[id] || [];
 
   return (
@@ -117,7 +114,8 @@ export default function RoadmapDetail() {
       
       {/* Back Button */}
       <button 
-        onClick={() => navigate('/roadmap')} 
+        // PERBAIKAN: Menambahkan /dashboard agar path menjadi absolut
+        onClick={() => navigate('/dashboard/roadmap')} 
         className="flex items-center gap-2 text-slate-400 hover:text-indigo-600 mb-8 transition-all group"
       >
         <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
@@ -167,7 +165,6 @@ export default function RoadmapDetail() {
         
         <div className="space-y-4">
           {moduleData.items.map((item) => {
-            // Cek apakah item ini sudah dicentang
             const isChecked = currentPhaseChecklist.includes(String(item.id));
 
             return (

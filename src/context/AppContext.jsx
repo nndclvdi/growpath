@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import API from '../api/axios'; // Pastikan path ini benar
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import API from '../api/axios'; 
 
 const AppContext = createContext();
 
@@ -17,6 +17,8 @@ export const AppProvider = ({ children }) => {
   });
 
   const [loading, setLoading] = useState(true);
+  
+  // Mengambil state awal dari localStorage agar data Roadmap lokal tidak hilang saat refresh
   const [progress, setProgress] = useState(() => {
     try {
       const saved = localStorage.getItem('growpath_progress');
@@ -33,23 +35,39 @@ export const AppProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Saat refresh dari DB, KITA MERGE data DB dengan data Lokal
+  const refreshProgress = useCallback(async (userId) => {
+    if (!userId) return;
+    try {
+      const res = await API.get(`/progress/user/${userId}`);
+      setProgress(prev => ({
+        ...prev, // Pertahankan roadmap/data lokal
+        ...res.data, // Timpa dengan data dari database (stats, activeCourses)
+        activeCourses: res.data.activeCourses || prev.activeCourses // Pastikan activeCourses terambil
+      }));
+    } catch (err) {
+      console.error("Gagal refresh progress dari DB:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const response = await API.get('/auth/check-auth');
-        setUser(response.data.user);
+        if (response.data?.user) {
+          setUser(response.data.user);
+          await refreshProgress(response.data.user.id);
+        } else {
+          setUser(null);
+        }
       } catch (err) {
         setUser(null);
-        setProgress(defaultProgress);
-        localStorage.removeItem('growpath_user');
-        localStorage.removeItem('adminData');
-        localStorage.removeItem('growpath_progress');
       } finally {
         setLoading(false);
       }
     };
     checkAuth();
-  }, []);
+  }, [refreshProgress]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,25 +80,63 @@ export const AppProvider = ({ children }) => {
         setAvailableAssessments(Array.isArray(assessRes.data) ? assessRes.data : (assessRes.data.assessments || []));
         setCourses(Array.isArray(courseRes.data) ? courseRes.data : (courseRes.data.courses || []));
       } catch (error) {
-        console.error("Gagal mengambil data:", error);
+        console.error("Gagal mengambil data pendukung:", error);
       }
     };
     fetchData();
   }, [user]);
 
-  useEffect(() => {
-    if (user) localStorage.setItem('growpath_user', JSON.stringify(user));
-  }, [user]);
-
+  // Simpan progress ke localStorage setiap kali berubah agar persisten
   useEffect(() => {
     localStorage.setItem('growpath_progress', JSON.stringify(progress));
   }, [progress]);
 
   useEffect(() => {
+    if (user) localStorage.setItem('growpath_user', JSON.stringify(user));
+    else localStorage.removeItem('growpath_user');
+  }, [user]);
+
+  useEffect(() => {
     localStorage.setItem('growpath_talent_mappings', JSON.stringify(talentMappings));
   }, [talentMappings]);
 
-  const login = (userData) => setUser(userData);
+
+  // --- Definisi Fungsi ---
+  const saveAssessment = (assessmentResult) => {
+    const attemptId = assessmentResult.attemptId || Date.now().toString();
+    const newAssessment = { ...assessmentResult, attemptId };
+    setProgress(prev => ({ ...prev, assessments: [...(prev.assessments || []), newAssessment] }));
+    return attemptId;
+  };
+
+  const deleteAssessmentHistory = (attemptId) => {
+    setProgress(prev => ({ ...prev, assessments: (prev.assessments || []).filter(a => a.attemptId !== attemptId) }));
+  };
+
+  const markCourseCompleted = (courseId) => {
+    setProgress(prev => {
+      const targetId = courseId.toString();
+      const updatedCompleted = prev.completedCourses.includes(targetId) ? prev.completedCourses : [...prev.completedCourses, targetId];
+      return { ...prev, completedCourses: updatedCompleted };
+    });
+  };
+
+  const addCourse = (course) => setCourses(prev => [...prev, { ...course, id: course._id || course.id }]);
+  const updateCourse = (updatedData) => setCourses(prev => prev.map(c => (c.id === updatedData.id || c._id === updatedData._id) ? { ...c, ...updatedData } : c));
+  const deleteCourse = (id) => setCourses(prev => prev.filter(c => c.id !== id && c._id !== id));
+
+  const addAssessment = (assessment) => setAvailableAssessments(prev => [...prev, { ...assessment, id: assessment._id || assessment.id }]);
+  const updateAssessment = (updatedData) => setAvailableAssessments(prev => prev.map(a => (a.id === updatedData.id || a._id === updatedData._id) ? { ...a, ...updatedData } : a));
+  const deleteAssessment = (id) => setAvailableAssessments(prev => prev.filter(a => a.id !== id && a._id !== id));
+
+  const addTalentMapping = (t) => setTalentMappings(prev => [...prev, { ...t, id: Date.now() }]);
+  const updateTalentMapping = (id, data) => setTalentMappings(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+  const deleteTalentMapping = (id) => setTalentMappings(prev => prev.filter(t => t.id !== id));
+
+  const login = async (userData) => {
+    setUser(userData);
+    await refreshProgress(userData.id);
+  };
 
   const logout = async () => {
     try {
@@ -88,7 +144,6 @@ export const AppProvider = ({ children }) => {
       setUser(null);
       setProgress(defaultProgress);
       localStorage.removeItem('growpath_user');
-      localStorage.removeItem('adminData');
       localStorage.removeItem('growpath_progress');
       return true;
     } catch (error) {
@@ -108,54 +163,12 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  const saveAssessment = (assessmentResult) => {
-    const attemptId = assessmentResult.attemptId || Date.now().toString();
-    const newAssessment = { ...assessmentResult, attemptId };
-    setProgress(prev => ({ ...prev, assessments: [...(prev.assessments || []), newAssessment] }));
-    return attemptId;
-  };
-
-  const deleteAssessmentHistory = (attemptId) => {
-    setProgress(prev => ({ ...prev, assessments: (prev.assessments || []).filter(a => a.attemptId !== attemptId) }));
-  };
-
-  const markCourseCompleted = (courseId) => {
-    setProgress(prev => {
-      const targetId = courseId.toString();
-      const prevCompleted = prev.completedCourses || [];
-      const prevActive = prev.activeCourses || [];
-
-      const updatedCompleted = prevCompleted.includes(targetId) ? prevCompleted : [...prevCompleted, targetId];
-      let updatedActive = prevActive.map(ac => {
-        if (ac.courseId.toString() === targetId) return { ...ac, percentage: 100, currentModuleName: 'Selesai' };
-        return ac;
-      });
-
-      if (!prevActive.some(ac => ac.courseId.toString() === targetId)) {
-        updatedActive.push({ courseId: targetId, percentage: 100, currentModuleName: 'Selesai' });
-      }
-
-      return { ...prev, completedCourses: updatedCompleted, activeCourses: updatedActive };
-    });
-  };
-
-  const addCourse = (course) => setCourses(prev => [...prev, { ...course, id: course._id || course.id }]);
-  const updateCourse = (updatedData) => setCourses(prev => prev.map(c => (c.id === updatedData.id || c._id === updatedData._id) ? { ...c, ...updatedData } : c));
-  const deleteCourse = (id) => setCourses(prev => prev.filter(c => c.id !== id && c._id !== id));
-
-  const addAssessment = (assessment) => setAvailableAssessments(prev => [...prev, { ...assessment, id: assessment._id || assessment.id }]);
-  const updateAssessment = (updatedData) => setAvailableAssessments(prev => prev.map(a => (a.id === updatedData.id || a._id === updatedData._id) ? { ...a, ...updatedData } : a));
-  const deleteAssessment = (id) => setAvailableAssessments(prev => prev.filter(a => a.id !== id && a._id !== id));
-
-  const addTalentMapping = (t) => setTalentMappings(prev => [...prev, { ...t, id: Date.now() }]);
-  const updateTalentMapping = (id, data) => setTalentMappings(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
-  const deleteTalentMapping = (id) => setTalentMappings(prev => prev.filter(t => t.id !== id));
 
   return (
     <AppContext.Provider
       value={{
         user, login, logout, updateProfile, loading,
-        progress, toggleRoadmapItem, saveAssessment, deleteAssessmentHistory, markCourseCompleted,
+        progress, setProgress, toggleRoadmapItem, saveAssessment, deleteAssessmentHistory, markCourseCompleted,
         courses, addCourse, updateCourse, deleteCourse,
         availableAssessments, addAssessment, updateAssessment, deleteAssessment,
         talentMappings, addTalentMapping, updateTalentMapping, deleteTalentMapping
@@ -170,4 +183,11 @@ export const AppProvider = ({ children }) => {
   );
 };
 
-export const useAppContext = () => useContext(AppContext);
+// Error handling tambahan agar lebih mudah dilacak
+export const useAppContext = () => {
+  const context = useContext(AppContext);
+  if (context === undefined) {
+    throw new Error('useAppContext must be used within an AppProvider');
+  }
+  return context;
+};

@@ -5,14 +5,15 @@ import Header from './Header';
 import { useAppContext } from '../context/AppContext';
 
 export default function Layout() {
-  const { user } = useAppContext();
+  const context = useAppContext();
 
-  // Jika user belum login, lempar ke halaman login
-  if (!user) {
+  // Jika konteks belum siap atau user null, lempar ke login
+  if (!context || !context.user) {
     return <Navigate to="/login" replace />;
   }
 
   return (
+    // Memastikan background utama menggunakan slate-50 yang bersih
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       <Sidebar />
       <div className="flex-1 flex flex-col h-screen overflow-hidden">

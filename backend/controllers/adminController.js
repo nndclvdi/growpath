@@ -1,14 +1,11 @@
-const db = require('../config/db');
+// backend/controllers/adminController.js
+const AdminModel = require('../models/adminModel');
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    // Pengecekan sesi dinonaktifkan sementara untuk testing
-    // if (!req.session.adminId) return res.status(403).json({ message: 'Unauthorized' });
-
-    const userCount = await db.query('SELECT COUNT(*) FROM users');
-    const assessmentCount = await db.query('SELECT COUNT(*) FROM assessments');
+    const totalUsers = await AdminModel.getTotalUsers();
+    const activeAssessments = await AdminModel.getTotalAssessments();
     
-    // Data dummy untuk melengkapi UI jika database belum penuh
     const recentActivity = [
       { name: 'Emma Stone', action: 'completed the "Tech Core" assessment', time: '2m ago' },
       { name: 'James Wilson', action: 'matched with "AI Product Manager"', time: '15m ago' }
@@ -21,12 +18,7 @@ exports.getDashboardStats = async (req, res) => {
     ];
 
     res.json({
-      stats: {
-        totalUsers: parseInt(userCount.rows[0].count) || 0,
-        activeAssessments: parseInt(assessmentCount.rows[0].count) || 0,
-        matches: 8439,
-        progress: 92
-      },
+      stats: { totalUsers, activeAssessments, matches: 8439, progress: 92 },
       recentActivities: recentActivity,
       trendingPaths: trending
     });

@@ -21,7 +21,8 @@ export default function EditProfile() {
   const handleSubmit = (e) => {
     e.preventDefault();
     updateProfile(formData);
-    navigate('/profile');
+    // PERBAIKAN 1: Tambahkan /dashboard
+    navigate('/dashboard/profile');
   };
 
   return (
@@ -29,7 +30,8 @@ export default function EditProfile() {
       
       <div className="flex items-center gap-4 mb-8">
         <button 
-          onClick={() => navigate('/profile')}
+          // PERBAIKAN 2: Tambahkan /dashboard
+          onClick={() => navigate('/dashboard/profile')}
           className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
         >
           <X size={24} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 
@@ -8,81 +8,85 @@ import AdminLayout from './components/AdminLayout';
 import UserRoute from './routes/UserRoute';
 import AdminRoute from './routes/AdminRoute';
 
-// Import Landing Page (Pastikan file LandingPage.jsx sudah dibuat di folder pages/)
-import LandingPage from './pages/LandingPage'; 
+// LAZY LOADING: Import halaman menggunakan lazy()
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const AssessmentList = lazy(() => import('./pages/Assessments/AssessmentList'));
+const TakeAssessment = lazy(() => import('./pages/Assessments/TakeAssessment'));
+const AssessmentResult = lazy(() => import('./pages/Assessments/AssessmentResult'));
+const Roadmap = lazy(() => import('./pages/Roadmap'));
+const RoadmapDetail = lazy(() => import('./pages/RoadmapDetail'));
+const CourseList = lazy(() => import('./pages/Courses/CourseList'));
+const CourseDetail = lazy(() => import('./pages/Courses/CourseDetail'));
+const Progress = lazy(() => import('./pages/Progress'));
+const ProfileView = lazy(() => import('./pages/Profile/ProfileView'));
+const EditProfile = lazy(() => import('./pages/Profile/EditProfile'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
-// User Pages
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import AssessmentList from './pages/Assessments/AssessmentList';
-import TakeAssessment from './pages/Assessments/TakeAssessment';
-import AssessmentResult from './pages/Assessments/AssessmentResult';
-import Roadmap from './pages/Roadmap';
-import RoadmapDetail from './pages/RoadmapDetail';
-import CourseList from './pages/Courses/CourseList';
-import CourseDetail from './pages/Courses/CourseDetail';
-import Progress from './pages/Progress';
-import ProfileView from './pages/Profile/ProfileView';
-import EditProfile from './pages/Profile/EditProfile';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-
-// Admin Pages
-import LoginAdmin from './pages/Admin/LoginAdmin';
-import RegisterAdmin from './pages/Admin/RegisterAdmin';
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import ManageCourses from './pages/Admin/ManageCourses';
-import ManageAssessments from './pages/Admin/ManageAssessments';
-import UserInsights from './pages/Admin/UserInsights';
-import ManageTalentMapping from './pages/Admin/ManageTalentMapping';
-import Reports from './pages/Admin/Reports';
-import Settings from './pages/Admin/Settings';
+const LoginAdmin = lazy(() => import('./pages/Admin/LoginAdmin'));
+const RegisterAdmin = lazy(() => import('./pages/Admin/RegisterAdmin'));
+const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
+const ManageCourses = lazy(() => import('./pages/Admin/ManageCourses'));
+const ManageAssessments = lazy(() => import('./pages/Admin/ManageAssessments'));
+const UserInsights = lazy(() => import('./pages/Admin/UserInsights'));
+const ManageTalentMapping = lazy(() => import('./pages/Admin/ManageTalentMapping'));
+const Reports = lazy(() => import('./pages/Admin/Reports'));
+const Settings = lazy(() => import('./pages/Admin/Settings'));
 
 export default function App() {
   return (
     <AppProvider>
       <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} /> {/* Landing Page sebagai halaman utama */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login-admin" element={<LoginAdmin />} />
-          <Route path="/register-admin" element={<RegisterAdmin />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+        {/* Suspense akan menampilkan spinner saat halaman baru sedang dimuat */}
+        <Suspense fallback={
+          <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+            <div className="animate-spin h-12 w-12 border-4 border-indigo-600 rounded-full border-t-transparent"></div>
+          </div>
+        }>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login-admin" element={<LoginAdmin />} />
+            <Route path="/register-admin" element={<RegisterAdmin />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* User Routes */}
-          <Route path="/dashboard" element={<UserRoute><Layout /></UserRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="assessments" element={<AssessmentList />} />
-            <Route path="assessments/take/:id" element={<TakeAssessment />} />
-            <Route path="assessments/result/:id" element={<AssessmentResult />} />
-            <Route path="roadmap" element={<Roadmap />} />
-            <Route path="roadmap/:id" element={<RoadmapDetail />} />
-            <Route path="courses" element={<CourseList />} />
-            <Route path="courses/:id" element={<CourseDetail />} />
-            <Route path="progress" element={<Progress />} />
-            <Route path="profile" element={<ProfileView />} />
-            <Route path="profile/edit" element={<EditProfile />} />
-          </Route>
+            {/* User Routes */}
+            <Route path="/dashboard" element={<UserRoute><Layout /></UserRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="assessments" element={<AssessmentList />} />
+              <Route path="assessments/take/:id" element={<TakeAssessment />} />
+              <Route path="assessments/result/:id" element={<AssessmentResult />} />
+              <Route path="roadmap" element={<Roadmap />} />
+              <Route path="roadmap/:id" element={<RoadmapDetail />} />
+              <Route path="courses" element={<CourseList />} />
+              <Route path="courses/:id" element={<CourseDetail />} />
+              <Route path="progress" element={<Progress />} />
+              <Route path="profile" element={<ProfileView />} />
+              <Route path="profile/edit" element={<EditProfile />} />
+            </Route>
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="courses" element={<ManageCourses />} />
-            <Route path="assessments" element={<ManageAssessments />} />
-            <Route path="users" element={<UserInsights />} />
-            <Route path="talent-mapping" element={<ManageTalentMapping />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="courses" element={<ManageCourses />} />
+              <Route path="assessments" element={<ManageAssessments />} />
+              <Route path="users" element={<UserInsights />} />
+              <Route path="talent-mapping" element={<ManageTalentMapping />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AppProvider>
   );
