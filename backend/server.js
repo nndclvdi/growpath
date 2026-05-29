@@ -16,7 +16,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Middleware manual untuk menangani Preflight Request (OPTIONS)
-// Ini adalah cara paling aman agar tidak bentrok dengan path-to-regexp
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
@@ -25,6 +24,13 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     return res.status(200).send();
   }
+  next();
+});
+
+//TAMBAHAN BARU: Header Keamanan untuk mengizinkan popup Google OAuth di backend
+app.use((req, res, next) => {
+  res.header('Cross-Origin-Opener-Policy', 'unsafe-none');
+  res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
   next();
 });
 

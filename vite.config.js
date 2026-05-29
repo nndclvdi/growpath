@@ -4,7 +4,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // 👇 INI TRIKNYA: Menyambungkan 5173 langsung ke 5000
+    headers: {
+      // UBAH KEDUANYA MENJADI unsafe-none
+      'Cross-Origin-Opener-Policy': 'unsafe-none',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

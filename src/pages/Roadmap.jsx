@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { CheckCircle, Circle, Lock, Zap, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import API from '../api/axios'; // 1. IMPORT AXIOS PUSAT DI SINI
+import API from '../api/axios';
 
 export default function Roadmap() {
   const { user, progress, toggleRoadmapItem } = useAppContext();
@@ -13,7 +13,6 @@ export default function Roadmap() {
   useEffect(() => {
     const fetchRoadmaps = async () => {
       try {
-        // 2. MENGGUNAKAN AXIOS GET (Otomatis ke http://localhost:5000/api/roadmaps)
         const response = await API.get('/roadmaps');
         const data = response.data;
         
@@ -43,7 +42,6 @@ export default function Roadmap() {
 
     if (user?.id) {
       try {
-        // 3. MENGGUNAKAN AXIOS POST (Ringkas tanpa headers & stringify)
         await API.post('/roadmaps/progress', {
           userId: user.id,
           phaseId: phaseId,
@@ -57,7 +55,8 @@ export default function Roadmap() {
 
   const processedPhases = useMemo(() => {
     return phases.map((phase, index) => {
-      const checklist = progress.roadmapChecklist[phase.id] || [];
+      // PERBAIKAN 1: Tambahkan optional chaining (?.)
+      const checklist = progress?.roadmapChecklist?.[phase.id] || [];
       
       const isCompleted = phase.items.length > 0 && phase.items.every(item => checklist.includes(item.id));
 
@@ -74,7 +73,8 @@ export default function Roadmap() {
       }
 
       const prev = phases[index - 1];
-      const prevChecklist = progress.roadmapChecklist[prev?.id] || [];
+      // PERBAIKAN 2: Tambahkan optional chaining (?.)
+      const prevChecklist = progress?.roadmapChecklist?.[prev?.id] || [];
       
       const prevCompleted = prev?.items?.length > 0 && prev.items.every(item => prevChecklist.includes(item.id));
 
@@ -90,7 +90,8 @@ export default function Roadmap() {
   const totalXP = useMemo(() => {
     let xp = 0;
     processedPhases.forEach((phase) => {
-      const checklist = progress.roadmapChecklist[phase.id] || [];
+      // PERBAIKAN 3: Tambahkan optional chaining (?.)
+      const checklist = progress?.roadmapChecklist?.[phase.id] || [];
       xp += checklist.length * 10;
     });
     return xp;
@@ -116,7 +117,8 @@ export default function Roadmap() {
         <div className="absolute left-6 top-0 bottom-0 w-1 bg-slate-100 -z-10" />
 
         {processedPhases.map((phase, index) => {
-          const checklist = progress.roadmapChecklist[phase.id] || [];
+          // PERBAIKAN 4: Tambahkan optional chaining (?.)
+          const checklist = progress?.roadmapChecklist?.[phase.id] || [];
           
           let themeClass = "border-slate-200 bg-white";
           let iconClass = "bg-white text-slate-400 border-slate-200";
@@ -184,7 +186,7 @@ export default function Roadmap() {
                 {/* BUTTON ACTION */}
                 {!phase.isLocked && (
                   <button 
-                    onClick={() => navigate(`/roadmap/${phase.id}`)}
+                    onClick={() => navigate(`/dashboard/roadmap/${phase.id}`)}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${
                       phase.isCompleted 
                       ? 'border-2 border-slate-200 text-slate-700 hover:bg-slate-50' 

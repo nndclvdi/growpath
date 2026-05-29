@@ -18,6 +18,7 @@ export default function AssessmentResult() {
         setLoading(true);
         setError(null);
 
+        // Jika error 404 berlanjut, pastikan endpoint ini sesuai dengan Backend Anda
         const response = await API.get(`/assessments/results/${id}`, {
           signal: controller.signal
         });
@@ -88,7 +89,8 @@ export default function AssessmentResult() {
           <p className="text-slate-500 text-sm leading-relaxed">{error}</p>
         </div>
         <button 
-          onClick={() => navigate('/assessments')}
+          // PERBAIKAN: Harus diawali dengan '/' agar jadi absolute path
+          onClick={() => navigate('/dashboard/assessments')}
           className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg flex items-center gap-2"
         >
           <ArrowLeft size={20} /> Kembali ke Daftar Assessments
@@ -127,7 +129,8 @@ export default function AssessmentResult() {
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       <button
-        onClick={() => navigate('/assessments')}
+        // PERBAIKAN: Tombol back yang benar agar tidak dilempar ke Landing Page
+        onClick={() => navigate('/dashboard/assessments')}
         className="text-slate-400 hover:text-slate-600 font-medium transition-colors text-sm"
       >
         [ Back to Assessments ]

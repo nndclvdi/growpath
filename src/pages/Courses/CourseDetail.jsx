@@ -89,7 +89,8 @@ export default function CourseDetail() {
       if (markCourseCompleted) markCourseCompleted(currentId);
       
       alert("🎉 Selamat! Kursus berhasil diselesaikan.");
-      navigate('/progress');
+      // PERBAIKAN 1: Tambahkan /dashboard agar navigasi benar
+      navigate('/dashboard/progress');
       
     } catch (error) {
       console.error("Error completing course:", error);
@@ -104,7 +105,8 @@ export default function CourseDetail() {
       <div className="flex flex-col items-center justify-center h-full p-20">
         <p className="text-slate-500 mb-4 font-medium">Course not found.</p>
         <button
-          onClick={() => navigate('/courses')}
+          // PERBAIKAN 2: Tambahkan /dashboard agar navigasi benar
+          onClick={() => navigate('/dashboard/courses')}
           className="px-6 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
         >
           Back to Courses
@@ -128,7 +130,8 @@ export default function CourseDetail() {
       
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => navigate('/courses')}
+          // PERBAIKAN 3: Tambahkan /dashboard agar navigasi benar
+          onClick={() => navigate('/dashboard/courses')}
           className="flex items-center gap-1 text-slate-500 hover:text-indigo-600 transition-colors text-sm font-medium"
         >
           <ChevronLeft size={18} />

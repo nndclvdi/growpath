@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const crypto = require('crypto'); // Tambahan untuk token acak
-const nodemailer = require('nodemailer'); // Tambahan untuk kirim email
+const crypto = require('crypto'); 
+const nodemailer = require('nodemailer'); 
+const axios = require('axios'); // <-- TAMBAHAN UNTUK GOOGLE OAUTH
 const db = require('../config/db'); 
 
 // 1. ENDPOINT REGISTRASI (/register)
@@ -50,17 +51,14 @@ router.post('/login-user', async (req, res) => {
       return res.status(401).json({ message: 'Password salah.' });
     }
 
-    // PELINDUNG ROLE KOSONG: Jika null, anggap sebagai 'user'
     const safeRole = user.role ? user.role.toLowerCase() : 'user';
 
-    // PROTEKSI: Jika dia Admin, tolak dan suruh ke halaman login admin
     if (safeRole === 'admin' || safeRole === 'superadmin') {
       return res.status(403).json({ 
         message: 'Akun ini adalah akun Admin. Silakan login melalui portal Admin Panel.' 
       });
     }
 
-    // Set Session khusus User (Tambahkan NAME agar Frontend tidak error)
     req.session.userId = user.id; 
     req.session.userRole = safeRole;
     req.session.userEmail = user.email;
@@ -71,7 +69,6 @@ router.post('/login-user', async (req, res) => {
     req.session.save((err) => {
       if (err) return res.status(500).json({ message: 'Gagal menyimpan sesi.' });
       
-      // Kirim objek user lengkap
       res.json({ 
         message: 'Login berhasil', 
         user: { id: user.id, name: user.name, email: user.email, role: safeRole }
@@ -81,6 +78,68 @@ router.post('/login-user', async (req, res) => {
   } catch (error) {
     console.error("Login User Error:", error.message);
     res.status(500).json({ message: 'Server Error: ' + error.message });
+  }
+});
+
+// ==========================================
+// ENDPOINT BARU: GOOGLE AUTH (/google)
+// ==========================================
+router.post('/google', async (req, res) => {
+  const { access_token } = req.body;
+
+  try {
+    // 1. Minta data profil user dari Google
+    const googleResponse = await axios.get(
+      'https://www.googleapis.com/oauth2/v3/userinfo',
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    );
+    
+    const { email, name } = googleResponse.data;
+
+    // 2. Cek apakah user sudah ada di database kita
+    let userResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user = userResult.rows[0];
+
+    // 3. Jika belum ada (Artinya dia Register via Google)
+    if (!user) {
+      // Buat password acak karena login google tidak pakai password
+      const salt = await bcrypt.genSalt(10);
+      const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+      
+      const insertResult = await db.query(
+        "INSERT INTO users (name, email, password, role, created_at) VALUES ($1, $2, $3, 'user', NOW()) RETURNING id, name, email, role",
+        [name, email, randomPassword]
+      );
+      user = insertResult.rows[0];
+    }
+
+    const safeRole = user.role ? user.role.toLowerCase() : 'user';
+
+    // 4. Buat sesi (Session Cookie) persis seperti login manual
+    if (safeRole === 'admin' || safeRole === 'superadmin') {
+      req.session.adminId = user.id;
+    } else {
+      req.session.userId = user.id; 
+    }
+    
+    req.session.userRole = safeRole;
+    req.session.userEmail = user.email;
+    req.session.userName = user.name; 
+
+    console.log(`\n🌍 [GOOGLE AUTH SUKSES] Session ID: ${req.sessionID} | Email: ${user.email}`);
+
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ message: 'Gagal menyimpan sesi.' });
+      
+      res.json({ 
+        message: 'Login Google berhasil', 
+        user: { id: user.id, name: user.name, email: user.email, role: safeRole }
+      });
+    });
+
+  } catch (error) {
+    console.error("Google Auth Error:", error.message);
+    res.status(500).json({ message: "Gagal autentikasi dengan Google" });
   }
 });
 
@@ -100,17 +159,14 @@ router.post('/login-admin', async (req, res) => {
       return res.status(401).json({ message: 'Password salah.' });
     }
 
-    // PELINDUNG ROLE KOSONG
     const safeRole = user.role ? user.role.toLowerCase() : 'user';
 
-    // PROTEKSI: Jika dia User biasa, tolak masuk ke panel admin
     if (safeRole !== 'admin' && safeRole !== 'superadmin') {
       return res.status(403).json({ 
         message: 'Akses Ditolak. Anda bukan Admin.' 
       });
     }
 
-    // Set Session khusus Admin
     req.session.adminId = user.id;
     req.session.userRole = safeRole;
     req.session.userEmail = user.email;
@@ -141,7 +197,6 @@ router.post('/logout', (req, res) => {
       return res.status(500).json({ message: 'Logout gagal' });
     }
     
-    // Hapus cookie dengan path yang benar agar browser benar-benar membuangnya
     res.clearCookie('growpath_sid', { path: '/' }); 
     
     console.log(`\n🚪 [LOGOUT BERHASIL] Session ${sessionID} telah dihapus.`);
@@ -203,7 +258,6 @@ router.post('/forgot-password', async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenExpiry = Date.now() + 3600000; // 1 Jam
 
-    // Simpan token ke database
     await db.query(
       'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3',
       [resetToken, tokenExpiry, email]
@@ -266,7 +320,6 @@ router.post('/reset-password', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update password dan HAPUS token agar tidak bisa dipakai 2x
     await db.query(
       'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
       [hashedPassword, userEmail]

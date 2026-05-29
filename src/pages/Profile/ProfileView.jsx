@@ -24,7 +24,7 @@ export default function ProfileView() {
       
       try {
         // Menggunakan Axios: Jauh lebih ringkas!
-        const response = await API.get(`/progress/${user.id}`);
+        const response = await API.get(`/progress/user/${user.id}`);
         const result = response.data;
         
         // Simpan hanya bagian stats saja
@@ -81,7 +81,8 @@ export default function ProfileView() {
 
             {/* Tombol Edit */}
             <button 
-              onClick={() => navigate('/profile/edit')}
+              // PERBAIKAN: Menambahkan /dashboard agar rute menjadi absolut
+              onClick={() => navigate('/dashboard/profile/edit')}
               className="px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold hover:scale-105 transition-all flex items-center gap-3 shadow-lg shadow-indigo-200 text-lg"
             >
               <Edit2 size={20} /> Edit Profile

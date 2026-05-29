@@ -1,80 +1,51 @@
-const db = require('../config/db'); 
+const ProgressModel = require('../models/progressModel');
 
 exports.getUserProgress = async (req, res) => {
   const { userId } = req.params;
 
   try {
     // ==========================================
-    // 1. AMBIL AKTIVITAS MINGGUAN (GRAFIK BAR)
-    // [FIXED]: Menggunakan CTE (WITH), SUM, dan GROUP BY agar hari tidak dobel
+    // 1. AMBIL SEMUA DATA SECARA PARALEL (LEBIH CEPAT)
     // ==========================================
-    const activitiesQuery = `
-      WITH dates AS (
-        SELECT generate_series(CURRENT_DATE - 6, CURRENT_DATE, '1 day'::interval)::date AS d
-      )
-      SELECT 
-        TO_CHAR(dates.d, 'Dy') as name, 
-        COALESCE(SUM(ua.hours_spent), 0) as hours 
-      FROM dates
-      LEFT JOIN user_activities ua ON dates.d = ua.activity_date AND ua.user_id = $1
-      GROUP BY dates.d
-      ORDER BY dates.d ASC;
-    `;
-    const activities = await db.query(activitiesQuery, [userId]);
+    const [
+      activitiesRows, 
+      skillsRows, 
+      badgesRows, 
+      statsRow, 
+      datesRows, 
+      courseRows,
+      roadmapRows // <-- PERBAIKAN 1: Tambahkan variabel ini untuk menangkap data roadmap
+    ] = await Promise.all([
+      ProgressModel.getWeeklyActivities(userId),
+      ProgressModel.getUserSkills(userId),
+      ProgressModel.getUserBadges(userId),
+      ProgressModel.getUserStats(userId),
+      ProgressModel.getActivityDates(userId),
+      ProgressModel.getUserCourseProgress(userId),
+      ProgressModel.getUserRoadmapProgress(userId) // Promise ke-7
+    ]);
 
-    // Format jam menjadi float agar Recharts tidak error membaca string
-    const formattedActivities = activities.rows.map(row => ({
+    // ==========================================
+    // 2. FORMAT AKTIVITAS MINGGUAN (GRAFIK BAR)
+    // ==========================================
+    const formattedActivities = activitiesRows.map(row => ({
       name: row.name,
       hours: parseFloat(row.hours)
     }));
 
     // ==========================================
-    // 2. AMBIL DATA SKILL (RADAR CHART)
+    // 3. STATISTIK RINGKASAN
     // ==========================================
-    const skillsQuery = `
-      SELECT skill_name as subject, proficiency as A 
-      FROM user_skills 
-      WHERE user_id = $1;
-    `;
-    const skills = await db.query(skillsQuery, [userId]);
-
-    // ==========================================
-    // 3. AMBIL DATA BADGE DARI DATABASE
-    // ==========================================
-    const badgesQuery = `
-      SELECT badge_title as title, icon_name 
-      FROM user_achievements 
-      WHERE user_id = $1;
-    `;
-    const badgesResult = await db.query(badgesQuery, [userId]);
-    let userBadges = badgesResult.rows; 
-
-    // ==========================================
-    // 4. AMBIL STATISTIK RINGKASAN
-    // [FIXED]: Parse ke Number untuk mencegah bug tampilan
-    // ==========================================
-    const statsQuery = `
-      SELECT 
-        (SELECT COALESCE(SUM(hours_spent), 0) FROM user_activities WHERE user_id = $1) as total_hours,
-        (SELECT COUNT(*) FROM user_course_progress WHERE user_id = $1 AND is_completed = TRUE) as completed_courses;
-    `;
-    const statsResult = await db.query(statsQuery, [userId]);
-    const totalHours = parseFloat(statsResult.rows[0].total_hours) || 0;
-    const completedCourses = parseInt(statsResult.rows[0].completed_courses, 10) || 0;
-
-    // ==========================================
-    // 5. LOGIKA CURRENT STREAK
-    // ==========================================
-    const datesQuery = `
-      SELECT DISTINCT activity_date::DATE as act_date 
-      FROM user_activities 
-      WHERE user_id = $1 AND hours_spent > 0 
-      ORDER BY act_date DESC;
-    `;
-    const datesResult = await db.query(datesQuery, [userId]);
+    const totalHours = parseFloat(statsRow.total_hours) || 0;
+    const completedCourses = parseInt(statsRow.completed_courses, 10) || 0;
     
-    // Konversi ke format timestamp (tanpa jam/menit)
-    const activityDates = datesResult.rows.map(row => {
+    // Copy array agar bisa ditambah badge dinamis
+    let userBadges = [...badgesRows]; 
+
+    // ==========================================
+    // 4. LOGIKA CURRENT STREAK
+    // ==========================================
+    const activityDates = datesRows.map(row => {
       const d = new Date(row.act_date);
       d.setHours(0, 0, 0, 0);
       return d.getTime();
@@ -103,7 +74,7 @@ exports.getUserProgress = async (req, res) => {
     }
 
     // ==========================================
-    // 6. LOGIKA BADGE KHUSUS (DYNAMIC)
+    // 5. LOGIKA BADGE KHUSUS (DYNAMIC)
     // ==========================================
     if (currentStreak >= 7) {
       userBadges.push({ title: '7-Day Streak', icon_name: 'Zap' });
@@ -114,13 +85,35 @@ exports.getUserProgress = async (req, res) => {
     if (completedCourses >= 5) {
       userBadges.push({ title: 'Web Dev Master', icon_name: 'Award' });
     }
-    // ParseFloat agar perbandingan angka lebih aman
-    if (skills.rows.some(s => parseFloat(s.A) >= 90)) {
+    if (skillsRows.some(s => parseFloat(s.A) >= 90)) {
       userBadges.push({ title: 'High Proficiency', icon_name: 'Target' });
     }
 
     // ==========================================
-    // 7. KIRIM RESPONSE AKHIR KE FRONTEND
+    // 6. FORMAT DATA KURSUS
+    // ==========================================
+    const activeCourses = courseRows.map(row => ({
+      courseId: row.course_id,
+      percentage: row.progress_percentage,
+      isCompleted: row.is_completed
+    }));
+
+    // ==========================================
+    // 7. FORMAT DATA ROADMAP CHECKLIST (BARU)
+    // PERBAIKAN 2: Mengubah baris DB menjadi object format
+    // ==========================================
+    const roadmapChecklist = {};
+    if (roadmapRows && roadmapRows.length > 0) {
+      roadmapRows.forEach(row => {
+        if (!roadmapChecklist[row.phase_id]) {
+          roadmapChecklist[row.phase_id] = [];
+        }
+        roadmapChecklist[row.phase_id].push(row.task_id);
+      });
+    }
+
+    // ==========================================
+    // 8. KIRIM RESPONSE AKHIR KE FRONTEND
     // ==========================================
     res.json({
       stats: {
@@ -130,8 +123,10 @@ exports.getUserProgress = async (req, res) => {
         achievements: userBadges.length
       },
       activityData: formattedActivities,
-      skillData: skills.rows.map(s => ({ ...s, A: parseFloat(s.A), fullMark: 100 })),
-      badges: userBadges
+      skillData: skillsRows.map(s => ({ ...s, A: parseFloat(s.A), fullMark: 100 })),
+      badges: userBadges,
+      activeCourses: activeCourses,
+      roadmapChecklist: roadmapChecklist // <-- PERBAIKAN 3: Kirim data roadmap
     });
 
   } catch (err) {
