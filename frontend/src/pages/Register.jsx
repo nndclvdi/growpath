@@ -64,22 +64,39 @@ export default function Register() {
       const res = await API.post('/auth/register', {
         name,
         email,
-        password,
-        role: 'user'
+        password
       });
 
-      Swal.close();
+      if (res.data && res.data.token) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('growpath_user', JSON.stringify(res.data.user));
 
-      await Swal.fire({
-        icon: 'success',
-        title: 'Registrasi Berhasil',
-        text: 'Silakan login untuk memulai.'
-      });
+        await login(res.data.user);
 
-      navigate('/login', {
-        state: { isNewUser: true }
-      });
+        Swal.close();
 
+        await Swal.fire({
+          icon: 'success',
+          title: 'Registrasi Berhasil',
+          text: 'Selamat datang di GrowPath!',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        navigate('/dashboard/assessments/1');
+      } else {
+        Swal.close();
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Registrasi Berhasil',
+          text: 'Silakan login untuk memulai.'
+        });
+
+        navigate('/login', {
+          state: { isNewUser: true }
+        });
+      }
     } catch (error) {
       console.error(error);
 
@@ -248,7 +265,11 @@ export default function Register() {
             <div className="flex-grow border-t border-slate-200"></div>
           </div>
 
-          <button type="button" onClick={() => loginWithGoogle()} className="w-full flex items-center justify-center gap-3 border-2 border-slate-100 py-3.5 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all text-sm font-bold text-slate-700 bg-white">
+          <button
+            type="button"
+            onClick={() => loginWithGoogle()}
+            className="w-full flex items-center justify-center gap-3 border-2 border-slate-100 py-3.5 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all text-sm font-bold text-slate-700 bg-white"
+          >
             Google
           </button>
 
